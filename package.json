@@ -1,6 +1,6 @@
 {
   "name": "automatic-submission-service",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Microservice providing an API for external parties to  process inzendingen voor toezicht.",
   "dependencies": {
     "jsonld": "^1.7.0"
