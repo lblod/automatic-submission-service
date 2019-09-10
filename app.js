@@ -1,10 +1,19 @@
 import { app } from 'mu';
-app.post('/melding', async function(req, res, next) {
+import bodyParser from 'body-parser';
+import * as jsonld from 'jsonld';
+
+// To make it easier for vendor, accept-type: application/json
+app.use(bodyParser.json());
+
+app.post('/melding', async function(req, res, next ) {
   try {
-    res.send({success: true, message: "Hello"});
+    let ttl = await jsonld.toRDF(req.body, {format: 'application/n-quads'});
+    res.writeHead(200, {'Content-Type': 'text/turtle; charset=UTF-8'});
+    res.write(ttl);
+    res.end();
   }
   catch(e) {
     console.error(e);
-    return next(new Error(e.message));
+    next(new Error(e.message));
   }
 });
