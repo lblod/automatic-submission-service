@@ -133,5 +133,8 @@ SELECT ?organisationID WHERE  {
    }
    ${sparqlEscapeUri(organisation)} mu:uuid ?organisationID.
 }`);
+  if (result.results.bindings.length === 1) {
+    return result.results.bindings[0].organisationID.value;
+  }
 }
   export { enrichBody, storeSubmission, verifyKeyAndOrganisation }
