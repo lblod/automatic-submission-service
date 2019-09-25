@@ -111,7 +111,7 @@ INSERT DATA {
                                         mu:uuid ${sparqlEscapeString(remoteDataId)};
                                         nie:url ${sparqlEscapeUri(locationUrl)};
                                        dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
-                                      adms:status <http://lblod.data.gift/automatische-melding-statuses/ready-to-be-cached>;
+                                      adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
                                     dct:created ${sparqlEscapeDateTime(timestamp)};
                                     dct:modified ${sparqlEscapeDateTime(timestamp)}.
      ${sparqlEscapeUri(meldingUri)} nie:hasPart ${sparqlEscapeUri(remoteDataUri)}.
