@@ -28,8 +28,9 @@ app.post('/melding', async function(req, res, next ) {
         res.status(401).send({errors: [{title: "invalid key"}]}).end();
       }
       else {
-        const toezichtGraph = `http://mu.semte.ch/graphs/organizations/${organisationID}/LoketLB-toezichtGebruiker`;
-        const uri = await storeSubmission(triples, toezichtGraph);
+        const submissionGraph = `http://mu.semte.ch/graphs/organizations/${organisationID}/LoketLB-toezichtGebruiker`;
+        const fileGraph = "http://mu.semte.ch/graphs/public";
+        const uri = await storeSubmission(triples, submissionGraph, fileGraph);
         res.status(201).send({uri}).end();
       }
     }

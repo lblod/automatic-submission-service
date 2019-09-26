@@ -70,26 +70,26 @@ async function triplesToTurtle(triples) {
   return promise;
 }
 
-async function storeSubmission(triples, graph) {
+async function storeSubmission(triples, submissionGraph, fileGraph) {
   const submittedResource = findSubmittedResource(triples);
   const turtle = await triplesToTurtle(triples);
   await update(`
 ${PREFIXES}
 INSERT DATA {
-  GRAPH ${sparqlEscapeUri(graph)} {
+  GRAPH ${sparqlEscapeUri(submissionGraph)} {
      ${turtle}
      ${sparqlEscapeUri(submittedResource)} a foaf:Document;  mu:uuid ${sparqlEscapeString(uuid())}.
   }
 }
 `);
   const taskId = uuid();
-  const taskUri=`http://data.lblod.info/id/automtic-submission-task/${taskId}`;
+  const taskUri=`http://data.lblod.info/id/automatic-submission-task/${taskId}`;
   const timestamp = new Date();
   const meldingUri = extractMeldingUri(triples);
   await update(`
 ${PREFIXES}
 INSERT DATA {
-  GRAPH ${sparqlEscapeUri(graph)} {
+  GRAPH ${sparqlEscapeUri(submissionGraph)} {
      ${sparqlEscapeUri(taskUri)} a melding:AutomaticSubmissionTask;
                                     mu:uuid ${sparqlEscapeString(taskId)};
                                     dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
@@ -106,17 +106,19 @@ INSERT DATA {
   await update(`
 ${PREFIXES}
 INSERT DATA {
-  GRAPH ${sparqlEscapeUri(graph)} {
+  GRAPH ${sparqlEscapeUri(fileGraph)} {
       ${sparqlEscapeUri(remoteDataUri)} a nfo:RemoteDataObject, nfo:FileDataObject;
                                         mu:uuid ${sparqlEscapeString(remoteDataId)};
                                         nie:url ${sparqlEscapeUri(locationUrl)};
-                                       dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
-                                      adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
-                                    dct:created ${sparqlEscapeDateTime(timestamp)};
-                                    dct:modified ${sparqlEscapeDateTime(timestamp)}.
-     ${sparqlEscapeUri(meldingUri)} nie:hasPart ${sparqlEscapeUri(remoteDataUri)}.
+                                        dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
+                                        adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
+                                        dct:created ${sparqlEscapeDateTime(timestamp)};
+                                        dct:modified ${sparqlEscapeDateTime(timestamp)}.
+  }
 
-}
+  GRAPH ${sparqlEscapeUri(submissionGraph)} {
+     ${sparqlEscapeUri(meldingUri)} nie:hasPart ${sparqlEscapeUri(remoteDataUri)}.
+  }
 }
 `);
   return taskUri;
@@ -135,6 +137,9 @@ SELECT ?organisationID WHERE  {
 }`);
   if (result.results.bindings.length === 1) {
     return result.results.bindings[0].organisationID.value;
+  } else {
+    return null;
   }
 }
-  export { enrichBody, storeSubmission, verifyKeyAndOrganisation }
+
+export { enrichBody, storeSubmission, verifyKeyAndOrganisation }
