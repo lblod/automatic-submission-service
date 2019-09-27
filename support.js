@@ -53,7 +53,7 @@ function extractMeldingUri(triples) {
 async function triplesToTurtle(triples) {
   const vendor = triples.find((t) => t.predicate.value === 'http://purl.org/pav/providedBy').object.value;
   const triplesToSave = triples.filter( (t ) => {
-    return t.object.value !== vendor && t.subject.value !== vendor;
+    return t.subject.value !== vendor;
   });
   const promise = new Promise((resolve, reject) => {
     const writer = new Writer({format: 'application/n-quads'});
