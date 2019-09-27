@@ -80,25 +80,19 @@ INSERT DATA {
      ${turtle}
      ${sparqlEscapeUri(submittedResource)} a foaf:Document .
   }
-}
-
-;
-
+}`);
+  await update(`
+${PREFIXES}
 INSERT {
   GRAPH ${sparqlEscapeUri(submissionGraph)} {
-     ?submittedResource mu:uuid ${sparqlEscapeString(uuid())} .
+     ${sparqlEscapeUri(submittedResource)} mu:uuid ${sparqlEscapeString(uuid())} .
   }
 } WHERE {
   GRAPH ${sparqlEscapeUri(submissionGraph)} {
-     ?submittedResource a foaf:Document .
-     FILTER NOT EXISTS { ?submittedResource mu:uuid ?uuid . }
-     VALUES ?submittedResource {
-         ${sparqlEscapeUri(submittedResource)}
-     }
+     ${sparqlEscapeUri(submittedResource)} a foaf:Document .
+     FILTER NOT EXISTS { ${sparqlEscapeUri(submittedResource)} mu:uuid ?uuid . }
   }
-}
-
-`);
+}`);
   const taskId = uuid();
   const taskUri=`http://data.lblod.info/id/automatic-submission-task/${taskId}`;
   const timestamp = new Date();
