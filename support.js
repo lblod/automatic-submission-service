@@ -39,7 +39,7 @@ async function enrichBody(originalBody) {
 }
 
 function findSubmittedResource(triples) {
-  return triples.find((triple) => triple.predicate.value === "http://purl.org/dc/terms/subject").subject.value;
+  return triples.find((triple) => triple.predicate.value === "http://purl.org/dc/terms/subject").object.value;
 }
 
 function extractLocationUrl(triples) {
@@ -78,9 +78,26 @@ ${PREFIXES}
 INSERT DATA {
   GRAPH ${sparqlEscapeUri(submissionGraph)} {
      ${turtle}
-     ${sparqlEscapeUri(submittedResource)} a foaf:Document;  mu:uuid ${sparqlEscapeString(uuid())}.
+     ${sparqlEscapeUri(submittedResource)} a foaf:Document .
   }
 }
+
+;
+
+INSERT {
+  GRAPH ${sparqlEscapeUri(submissionGraph)} {
+     ?submittedResource mu:uuid ${sparqlEscapeString(uuid())} .
+  }
+} WHERE {
+  GRAPH ${sparqlEscapeUri(submissionGraph)} {
+     ?submittedResource a foaf:Document .
+     FILTER NOT EXISTS { ?submittedResource mu:uuid ?uuid . }
+     VALUES ?submittedResource {
+         ${sparqlEscapeUri(submittedResource)}
+     }
+  }
+}
+
 `);
   const taskId = uuid();
   const taskUri=`http://data.lblod.info/id/automatic-submission-task/${taskId}`;
