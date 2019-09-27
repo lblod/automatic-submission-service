@@ -135,12 +135,12 @@ INSERT DATA {
   return taskUri;
 }
 
-async function verifyKeyAndOrganisation(key, organisation) {
+async function verifyKeyAndOrganisation(vendor, key, organisation) {
   const result = await query(`
 ${PREFIXES}
 SELECT ?organisationID WHERE  {
   GRAPH <http://mu.semte.ch/graphs/automatic-submission> {
-    ?agent a foaf:Agent;
+    ${sparqlEscapeUri(vendor)} a foaf:Agent;
            muAccount:key ${sparqlEscapeString(key)};
            muAccount:canActOnBehalfOf ${sparqlEscapeUri(organisation)}.
    }

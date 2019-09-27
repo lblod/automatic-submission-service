@@ -22,8 +22,9 @@ app.post('/melding', async function(req, res, next ) {
       const triples= await jsonld.toRDF(body, {});
       const keyTriple = triples.find((triple) => triple.predicate.value === "http://mu.semte.ch/vocabularies/account/key");
       const key = keyTriple.object.value;
+      const vendor = triples.find((triple) => triple.predicate.value === 'http://purl.org/pav/providedBy').object.value;
       const organisation = triples.find((triple) => triple.predicate.value === "http://purl.org/pav/createdBy").object.value;
-      const organisationID = await verifyKeyAndOrganisation(key, organisation); // TODO also take vendor URI into account to validate?
+      const organisationID = await verifyKeyAndOrganisation(vendor, key, organisation);
       if (! organisationID) {
         res.status(401).send({errors: [{title: "invalid key"}]}).end();
       }
