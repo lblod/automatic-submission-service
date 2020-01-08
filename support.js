@@ -78,7 +78,7 @@ ${PREFIXES}
 INSERT DATA {
   GRAPH ${sparqlEscapeUri(submissionGraph)} {
      ${turtle}
-     ${sparqlEscapeUri(submittedResource)} a foaf:Document .
+     ${sparqlEscapeUri(submittedResource)} a foaf:Document, ext:SubmissionDocument .
   }
 }`);
   await update(`
@@ -89,7 +89,7 @@ INSERT {
   }
 } WHERE {
   GRAPH ${sparqlEscapeUri(submissionGraph)} {
-     ${sparqlEscapeUri(submittedResource)} a foaf:Document .
+     ${sparqlEscapeUri(submittedResource)} a foaf:Document, ext:SubmissionDocument .
      FILTER NOT EXISTS { ${sparqlEscapeUri(submittedResource)} mu:uuid ?uuid . }
   }
 }`);
