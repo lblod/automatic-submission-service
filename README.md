@@ -124,13 +124,14 @@ See also: https://lblod.github.io/pages-vendors/#/docs/submission-api
 
 ## Model
 ### Used prefixes
-| Prefix       | URI                                                       |
-|--------------|-----------------------------------------------------------|
-| meb          | http://rdf.myexperiment.org/ontologies/base/              |
-| dct          | http://purl.org/dc/terms/                                 |
-| melding      | http://lblod.data.gift/vocabularies/automatische-melding/ |
-| adms         | http://www.w3.org/ns/adms#                                |
-| prov         | http://www.w3.org/ns/prov#                                |
+| Prefix  | URI                                                       |
+|---------|-----------------------------------------------------------|
+| meb     | http://rdf.myexperiment.org/ontologies/base/              |
+| dct     | http://purl.org/dc/terms/                                 |
+| melding | http://lblod.data.gift/vocabularies/automatische-melding/ |
+| adms    | http://www.w3.org/ns/adms#                                |
+| prov    | http://www.w3.org/ns/prov#                                |
+| nie     | http://www.semanticdesktop.org/ontologies/2007/01/19/nie# |
 
 
 ### Automatic submission task
@@ -156,11 +157,40 @@ The status of the task will be updated by other microservices to reflect the pro
 * http://lblod.data.gift/automatische-melding-statuses/success
 * http://lblod.data.gift/automatische-melding-statuses/failure
 
-### Remote data object
-Upon receipt of the submission, the service will create a remote data object for the submitted publication URL which will be downloaded by the [download-url-service](https://github.com/lblod/download-url-service). The model of the remote data object is described in the [README of the download-url-service](https://github.com/lblod/download-url-service).
+### Submission
+Submission to be processed automatically. The properties of the submission are retrieved from the JSON-LD body of the request.
 
+#### Class
+`meb:Submission`
+
+#### Properties
+For a full list of properties of a submission, we refer to the [automatic submission documentation](https://lblod.github.io/pages-vendors/#/docs/submission-annotations). In addition to the properties, the automatic submission services enriches the submission with the following properties:
+
+| Name              | Predicate     | Range                  | Definition                                     |
+|-------------------|---------------|------------------------|------------------------------------------------|
+| part              | `nie:hasPart` | `nfo:RemoteDataObject` | Submission publication URL to download         |
+| submittedResource | `dct:subject` | `foaf:Document`        | Document that is the subject of the submission |
+
+### Remote data object
+Upon receipt of the submission, the service will create a remote data object for the submitted publication URL which will be downloaded by the [download-url-service](https://github.com/lblod/download-url-service).
+
+#### Class
+`nfo:RemoteDataObject`
+
+#### Properties
+The model of the remote data object is described in the [README of the download-url-service](https://github.com/lblod/download-url-service).
+
+### Submitted resource
+Document that is the subject of the submission. The properties of the submitted resource are harvested from the publication URL by the [import-submission-service](https://github.com/lblod/import-submission-service) and [validate-submission-service](https://github.com/lblod/validate-submission-service) at a later stage in the automatic submission process.
+
+#### Class
+`foaf:Document` (and `ext:SubmissionDocument`)
+
+#### Properties
+For a full list of properties of a submitted resource, we refer to the [automatic submission documentation](https://lblod.github.io/pages-vendors/#/docs/submission-annotations).
 
 ## Related services
 The following services are also involved in the automatic processing of a submission:
 * [download-url-service](https://github.com/lblod/download-url-service)
 * [import-submission-service](https://github.com/lblod/import-submission-service)
+* [validate-submission-service](https://github.com/lblod/validate-submission-service)
