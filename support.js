@@ -4,7 +4,7 @@ import { getContext } from './jsonld-context';
 import { Writer } from 'n3';
 
 const CONCEPT_STATUS = 'http://lblod.data.gift/concepts/79a52da4-f491-4e2f-9374-89a13cde8ecd';
-const SUBMITTABLE_STATUS = 'http://lblod.data.gift/concepts/f6330856-e261-430f-b949-8e510d20d0ff';
+const SUBMITABLE_STATUS = 'http://lblod.data.gift/concepts/f6330856-e261-430f-b949-8e510d20d0ff';
 const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
   PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
   PREFIX pav:   <http://purl.org/pav/>
@@ -47,7 +47,7 @@ async function enrichBody(originalBody) {
 
 function validateBody(body) {
   const errors = [];
-  if (body["status"] != CONCEPT_STATUS && body["status"] != SUBMITTABLE_STATUS)
+  if (body["status"] != CONCEPT_STATUS && body["status"] != SUBMITABLE_STATUS)
     errors.push({ title: "Invalid status" });
 
   return { isValid: errors.length == 0, errors };
