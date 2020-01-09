@@ -1,5 +1,5 @@
 import { uuid, app, errorHandler } from 'mu';
-import { enrichBody, verifyKeyAndOrganisation, storeSubmission } from './support';
+import { enrichBody, validateBody, verifyKeyAndOrganisation, storeSubmission } from './support';
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
 app.use(errorHandler);
@@ -19,14 +19,18 @@ app.post('/melding', async function(req, res, next ) {
     else {
       const body = req.body;
       await enrichBody(body);
-      const triples= await jsonld.toRDF(body, {});
+      const { isValid, errors } = validateBody(body);
+      if (!isValid) {
+        res.status(400).send({errors}).end();
+      }
+      const triples = await jsonld.toRDF(body, {});
       const keyTriple = triples.find((triple) => triple.predicate.value === "http://mu.semte.ch/vocabularies/account/key");
       const key = keyTriple.object.value;
       const vendor = triples.find((triple) => triple.predicate.value === 'http://purl.org/pav/providedBy').object.value;
       const organisation = triples.find((triple) => triple.predicate.value === "http://purl.org/pav/createdBy").object.value;
       const organisationID = await verifyKeyAndOrganisation(vendor, key, organisation);
-      if (! organisationID) {
-        res.status(401).send({errors: [{title: "invalid key"}]}).end();
+      if (!organisationID) {
+        res.status(401).send({errors: [{title: "Invalid key"}]}).end();
       }
       else {
         const submissionGraph = `http://mu.semte.ch/graphs/organizations/${organisationID}/LoketLB-toezichtGebruiker`;

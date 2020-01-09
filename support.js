@@ -2,6 +2,9 @@ import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import { uuid, sparqlEscapeUri, sparqlEscapeString, sparqlEscapeDateTime } from 'mu';
 import { getContext } from './jsonld-context';
 import { Writer } from 'n3';
+
+const CONCEPT_STATUS = 'http://lblod.data.gift/concepts/79a52da4-f491-4e2f-9374-89a13cde8ecd';
+const SUBMITTABLE_STATUS = 'http://lblod.data.gift/concepts/f6330856-e261-430f-b949-8e510d20d0ff';
 const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
   PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
   PREFIX pav:   <http://purl.org/pav/>
@@ -17,7 +20,8 @@ const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
   PREFIX prov:  <http://www.w3.org/ns/prov#>
   PREFIX mu:   <http://mu.semte.ch/vocabularies/core/>
   PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-  PREFIX nfo:   <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#>`;
+  PREFIX nfo:   <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#>
+  PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>`;
 /*
  * This method ensures some basic things on the root node of the request body
  * e.g the root node should have a URI (@id), context (@context) and a type.
@@ -33,9 +37,20 @@ async function enrichBody(originalBody) {
   const id = uuid();
   originalBody["http://mu.semte.ch/vocabularies/core/uuid"]=id;
   if ( !originalBody["@id"] ) {
-    originalBody["@id"]=`http://data.lblod.info/submissions/${id}`;
+    originalBody["@id"] = `http://data.lblod.info/submissions/${id}`;
+  }
+  if ( !originalBody["status"] ) { // concept status by default
+    originalBody["status"] = CONCEPT_STATUS;
   }
   return originalBody;
+}
+
+function validateBody(body) {
+  const errors = [];
+  if (body["status"] != CONCEPT_STATUS && body["status"] != SUBMITTABLE_STATUS)
+    errors.push({ title: "Invalid status" });
+
+  return { isValid: errors.length == 0, errors };
 }
 
 function findSubmittedResource(triples) {
@@ -89,7 +104,7 @@ INSERT {
   }
 } WHERE {
   GRAPH ${sparqlEscapeUri(submissionGraph)} {
-     ${sparqlEscapeUri(submittedResource)} a foaf:Document, ext:SubmissionDocument .
+     ${sparqlEscapeUri(submittedResource)} a foaf:Document .
      FILTER NOT EXISTS { ${sparqlEscapeUri(submittedResource)} mu:uuid ?uuid . }
   }
 }`);
@@ -153,4 +168,4 @@ SELECT ?organisationID WHERE  {
   }
 }
 
-export { enrichBody, storeSubmission, verifyKeyAndOrganisation }
+export { enrichBody, validateBody, storeSubmission, verifyKeyAndOrganisation }
