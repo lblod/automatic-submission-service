@@ -138,7 +138,7 @@ ${PREFIXES}
 INSERT DATA {
   GRAPH ${sparqlEscapeUri(fileGraph)} {
       ${sparqlEscapeUri(remoteDataUri)} a nfo:RemoteDataObject, nfo:FileDataObject;
-                                        rpioHttp:requestHeader <http://data.lblod.info/services/request-headers/accept/text/html>;
+                                        rpioHttp:requestHeader <http://data.lblod.info/request-headers/accept/text/html>;
                                         mu:uuid ${sparqlEscapeString(remoteDataId)};
                                         nie:url ${sparqlEscapeUri(locationUrl)};
                                         dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
@@ -146,7 +146,7 @@ INSERT DATA {
                                         dct:created ${sparqlEscapeDateTime(timestamp)};
                                         dct:modified ${sparqlEscapeDateTime(timestamp)}.
 
-   <http://data.lblod.info/services/request-headers/accept/text/html> a http:RequestHeader;
+   <http://data.lblod.info/request-headers/accept/text/html> a http:RequestHeader;
                                                                       http:fieldValue "text/html";
                                                                       http:fieldName "Accept";
                                                                       http:hdrName <http://www.w3.org/2011/http-headers#accept>.
