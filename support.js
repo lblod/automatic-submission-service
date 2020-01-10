@@ -21,7 +21,11 @@ const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
   PREFIX mu:   <http://mu.semte.ch/vocabularies/core/>
   PREFIX foaf: <http://xmlns.com/foaf/0.1/>
   PREFIX nfo:   <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#>
-  PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>`;
+  PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
+  PREFIX http: <http://www.w3.org/2011/http#>
+  PREFIX rpioHttp: <http://redpencil.data.gift/vocabularies/http>
+`;
+
 /*
  * This method ensures some basic things on the root node of the request body
  * e.g the root node should have a URI (@id), context (@context) and a type.
@@ -134,12 +138,18 @@ ${PREFIXES}
 INSERT DATA {
   GRAPH ${sparqlEscapeUri(fileGraph)} {
       ${sparqlEscapeUri(remoteDataUri)} a nfo:RemoteDataObject, nfo:FileDataObject;
+                                        rpioHttp:requestHeader <http://data.lblod.info/services/request-headers/accept/text/html>;
                                         mu:uuid ${sparqlEscapeString(remoteDataId)};
                                         nie:url ${sparqlEscapeUri(locationUrl)};
                                         dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
                                         adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
                                         dct:created ${sparqlEscapeDateTime(timestamp)};
                                         dct:modified ${sparqlEscapeDateTime(timestamp)}.
+
+   <http://data.lblod.info/services/request-headers/accept/text/html> a http:RequestHeader;
+                                                                      http:fieldValue "text/html";
+                                                                      http:fieldName "Accept";
+                                                                      http:hdrName <http://www.w3.org/2011/http-headers#accept>.
   }
 
   GRAPH ${sparqlEscapeUri(submissionGraph)} {
@@ -147,6 +157,7 @@ INSERT DATA {
   }
 }
 `);
+
   return taskUri;
 }
 
