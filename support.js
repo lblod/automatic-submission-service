@@ -23,7 +23,7 @@ const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
   PREFIX nfo:   <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#>
   PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
   PREFIX http: <http://www.w3.org/2011/http#>
-  PREFIX rpioHttp: <http://redpencil.data.gift/vocabularies/http>
+  PREFIX rpioHttp: <http://redpencil.data.gift/vocabularies/http/>
 `;
 
 /*
