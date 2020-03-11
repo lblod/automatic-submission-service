@@ -154,7 +154,8 @@ The status of the task will be updated by other microservices to reflect the pro
 * http://lblod.data.gift/automatische-melding-statuses/not-started
 * http://lblod.data.gift/automatische-melding-statuses/importing
 * http://lblod.data.gift/automatische-melding-statuses/ready-for-validation
-* http://lblod.data.gift/automatische-melding-statuses/success
+* http://lblod.data.gift/automatische-melding-statuses/successful-concept
+* http://lblod.data.gift/automatische-melding-statuses/successful-sent
 * http://lblod.data.gift/automatische-melding-statuses/failure
 
 ### Submission
@@ -193,4 +194,5 @@ For a full list of properties of a submitted resource, we refer to the [automati
 The following services are also involved in the automatic processing of a submission:
 * [download-url-service](https://github.com/lblod/download-url-service)
 * [import-submission-service](https://github.com/lblod/import-submission-service)
+* [enrich-submission-service](https://github.com/lblod/enrich-submission-service)
 * [validate-submission-service](https://github.com/lblod/validate-submission-service)
