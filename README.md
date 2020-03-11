@@ -153,6 +153,7 @@ Upon receipt of the submission, the service will create an automatic submission 
 The status of the task will be updated by other microservices to reflect the progress of the automatic submission processing. The following statuses are known:
 * http://lblod.data.gift/automatische-melding-statuses/not-started
 * http://lblod.data.gift/automatische-melding-statuses/importing
+* http://lblod.data.gift/automatische-melding-statuses/ready-for-enrichment
 * http://lblod.data.gift/automatische-melding-statuses/ready-for-validation
 * http://lblod.data.gift/automatische-melding-statuses/successful-concept
 * http://lblod.data.gift/automatische-melding-statuses/successful-sent
