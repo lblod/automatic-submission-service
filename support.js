@@ -169,9 +169,8 @@ INSERT DATA {
     ${PREFIXES}
     INSERT DATA {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
-          ${sparqlEscapeUri(extractSubmissionUrl(triples))} a meb:submission;
-                                                            dct:created  ${sparqlEscapeDateTime(new Date())};
-                                                            dct:modified ${sparqlEscapeDateTime(new Date())}.
+          ${sparqlEscapeUri(extractSubmissionUrl(triples))}  dct:created  ${sparqlEscapeDateTime(new Date())}.
+          ${sparqlEscapeUri(extractSubmissionUrl(triples))}  dct:modified ${sparqlEscapeDateTime(new Date())}.
       }
     }
   `);
