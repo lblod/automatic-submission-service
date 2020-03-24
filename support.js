@@ -159,7 +159,7 @@ INSERT DATA {
   }
 
   GRAPH ${sparqlEscapeUri(submissionGraph)} {
-     ${sparqlEscapeUri(meldingUri)} dct:hasPart ${sparqlEscapeUri(remoteDataUri)}.
+     ${sparqlEscapeUri(meldingUri)} nie:hasPart ${sparqlEscapeUri(remoteDataUri)}.
   }
 }
 `);
