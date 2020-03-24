@@ -56,7 +56,12 @@ function validateBody(body) {
 
   return { isValid: errors.length == 0, errors };
 }
-
+function extractSubmissionUrl(triples){
+  return triples.find((triple) => 
+    triple.predicate.value === "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" &&
+    triple.object.value === "http://rdf.myexperiment.org/ontologies/base/Submission" 
+  ).subject.value;
+}
 function findSubmittedResource(triples) {
   return triples.find((triple) => triple.predicate.value === "http://purl.org/dc/terms/subject").object.value;
 }
@@ -90,6 +95,7 @@ async function triplesToTurtle(triples) {
 }
 
 async function storeSubmission(triples, submissionGraph, fileGraph) {
+
   const submittedResource = findSubmittedResource(triples);
   const turtle = await triplesToTurtle(triples);
   await update(`
@@ -157,6 +163,17 @@ INSERT DATA {
   }
 }
 `);
+
+  //update created-at/modified-at for submission
+  await update(`
+    ${PREFIXES}
+    INSERT DATA {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+          ${sparqlEscapeUri(extractSubmissionUrl(triples))}  dct:created  ${sparqlEscapeDateTime(new Date())}.
+          ${sparqlEscapeUri(extractSubmissionUrl(triples))}  dct:modified ${sparqlEscapeDateTime(new Date())}.
+      }
+    }
+  `);
 
   return taskUri;
 }
