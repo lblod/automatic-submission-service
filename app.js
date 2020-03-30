@@ -25,9 +25,17 @@ app.post('/melding', async function(req, res, next ) {
       }
       const triples = await jsonld.toRDF(body, {});
       const keyTriple = triples.find((triple) => triple.predicate.value === "http://mu.semte.ch/vocabularies/account/key");
+      const vendorTriple = triples.find((triple) => triple.predicate.value === 'http://purl.org/pav/providedBy');
+      const organisationTriple = triples.find((triple) => triple.predicate.value === "http://purl.org/pav/createdBy");
+      if (! keyTriple || ! vendorTriple| ! organisationTriple) {
+        console.log("WARNING: received an invalid json payload! Could not extract keyTriple, vendorTriple or organisationTriple");
+        console.debug(body);
+        res.status(400).send({errors: [{ title: "invalid json payload: missing key, vendor or organisation", extractedTriples: triples}]}).end();
+        return;
+      }
       const key = keyTriple.object.value;
-      const vendor = triples.find((triple) => triple.predicate.value === 'http://purl.org/pav/providedBy').object.value;
-      const organisation = triples.find((triple) => triple.predicate.value === "http://purl.org/pav/createdBy").object.value;
+      const vendor = vendorTriple.object.value;
+      const organisation = organisationTriple.object.value;
       const organisationID = await verifyKeyAndOrganisation(vendor, key, organisation);
       if (!organisationID) {
         res.status(401).send({errors: [{title: "Invalid key"}]}).end();
