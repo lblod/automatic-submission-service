@@ -26,6 +26,18 @@ const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
   PREFIX rpioHttp: <http://redpencil.data.gift/vocabularies/http/>
 `;
 
+async function isSubmitted(originalBody) {
+  const result = await query(`
+      PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+      
+      SELECT (COUNT(*) as ?count)
+      WHERE {
+          ${sparqlEscapeUri(originalBody["submittedResource"])} ?p ?o .
+      }
+    `);
+
+  return parseInt(result.results.bindings[0].count.value) > 0;
+}
 /*
  * This method ensures some basic things on the root node of the request body
  * e.g the root node should have a URI (@id), context (@context) and a type.
@@ -196,4 +208,4 @@ SELECT ?organisationID WHERE  {
   }
 }
 
-export { enrichBody, validateBody, storeSubmission, verifyKeyAndOrganisation }
+export { isSubmitted, enrichBody, validateBody, storeSubmission, verifyKeyAndOrganisation }

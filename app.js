@@ -1,5 +1,5 @@
 import { uuid, app, errorHandler } from 'mu';
-import { enrichBody, validateBody, verifyKeyAndOrganisation, storeSubmission } from './support';
+import {enrichBody, validateBody, verifyKeyAndOrganisation, storeSubmission, isSubmitted} from './support';
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
 app.use(errorHandler);
@@ -18,6 +18,10 @@ app.post('/melding', async function(req, res, next ) {
     }
     else {
       const body = req.body;
+      if(await isSubmitted(body)) {
+        res.status(409).send({errors: [{title: `melding has already been done`}]}).end();
+        return;
+      }
       await enrichBody(body);
       const { isValid, errors } = validateBody(body);
       if (!isValid) {
