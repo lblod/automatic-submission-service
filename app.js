@@ -18,10 +18,19 @@ app.post('/melding', async function(req, res, next ) {
     }
     else {
       const body = req.body;
-      if(await isSubmitted(body)) {
-        res.status(409).send({errors: [{title: `melding has already been done`}]}).end();
+      console.log("Incoming request on /melding");
+      console.debug(body);
+      if (body["submittedResource"]) {
+        const isSubmitted = await isSubmitted(body);
+        if (isSubmitted) {
+          res.status(409).send({errors: [{title: `submittedResource has already been submitted.`}]}).end();
+          return;
+        }
+      } else {
+        res.status(400).send({errors: [{title: `submittedResource is missing in request body.`}]}).end();
         return;
       }
+
       await enrichBody(body);
       const { isValid, errors } = validateBody(body);
       if (!isValid) {
@@ -32,15 +41,16 @@ app.post('/melding', async function(req, res, next ) {
       const vendorTriple = triples.find((triple) => triple.predicate.value === 'http://purl.org/pav/providedBy');
       const organisationTriple = triples.find((triple) => triple.predicate.value === "http://purl.org/pav/createdBy");
       if (! keyTriple || ! vendorTriple| ! organisationTriple) {
-        console.log("WARNING: received an invalid json payload! Could not extract keyTriple, vendorTriple or organisationTriple");
+        console.log("WARNING: received an invalid JSON-LD payload! Could not extract keyTriple, vendorTriple or organisationTriple");
         console.debug(body);
-        res.status(400).send({errors: [{ title: "invalid json payload: missing key, vendor or organisation", extractedTriples: triples}]}).end();
+        res.status(400).send({errors: [{ title: "Invalid JSON-LD payload: missing key, vendor or organisation", extractedTriples: triples}]}).end();
         return;
       }
       const key = keyTriple.object.value;
       const vendor = vendorTriple.object.value;
       const organisation = organisationTriple.object.value;
       const organisationID = await verifyKeyAndOrganisation(vendor, key, organisation);
+
       if (!organisationID) {
         res.status(401).send({errors: [{title: "Invalid key"}]}).end();
       }

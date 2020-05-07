@@ -29,7 +29,7 @@ const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
 async function isSubmitted(originalBody) {
   const result = await query(`
       PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
-      
+
       SELECT (COUNT(*) as ?count)
       WHERE {
           ${sparqlEscapeUri(originalBody["submittedResource"])} ?p ?o .
@@ -69,9 +69,9 @@ function validateBody(body) {
   return { isValid: errors.length == 0, errors };
 }
 function extractSubmissionUrl(triples){
-  return triples.find((triple) => 
+  return triples.find((triple) =>
     triple.predicate.value === "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" &&
-    triple.object.value === "http://rdf.myexperiment.org/ontologies/base/Submission" 
+    triple.object.value === "http://rdf.myexperiment.org/ontologies/base/Submission"
   ).subject.value;
 }
 function findSubmittedResource(triples) {
