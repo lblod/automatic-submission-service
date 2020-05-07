@@ -72,7 +72,7 @@ See also: https://lblod.github.io/pages-vendors/#/docs/submission-api
   },
   "organization": {
     "uri": "http://data.lblod.info/id/bestuurseenheden/2498239",
-    "@type": "besluit:BestuursEeenheid"
+    "@type": "besluit:Bestuurseenheid"
   },
   "publisher": {
     "uri": "http://data.lblod.info/vendors/cipal-schaubroeck",
@@ -103,7 +103,7 @@ See also: https://lblod.github.io/pages-vendors/#/docs/submission-api
   "testedAndApprovedBy": "http://data.lblod.info/a/custom/tester",
   "organization": {
     "uri": "http://data.lblod.info/id/bestuurseenheden/2498239",
-    "@type": "besluit:BestuursEeenheid"
+    "@type": "besluit:Bestuurseenheid"
   },
   "publisher": {
     "uri": "http://data.lblod.info/vendors/cipal-schaubroeck",
