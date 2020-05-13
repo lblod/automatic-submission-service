@@ -1,6 +1,6 @@
 import _ from 'lodash';
 
-import { uuid } from 'mu';
+import {uuid} from 'mu';
 import {getContext} from "./jsonld-context";
 
 const CONCEPT_STATUS = 'http://lblod.data.gift/concepts/79a52da4-f491-4e2f-9374-89a13cde8ecd';
@@ -12,18 +12,18 @@ const SUBMITTABLE_STATUS = 'http://lblod.data.gift/concepts/f6330856-e261-430f-b
  * it also adds a uuid for internal processing, since it's used for constructing the URI if necessary
  */
 export async function enrichBody(originalBody) {
-  if(! originalBody["@type"]) {
+  if (!originalBody["@type"]) {
     originalBody["@type"] = "meb:Submission";
   }
-  if (! originalBody["@context"]) {
+  if (!originalBody["@context"]) {
     originalBody["@context"] = await getContext();
   }
   const id = uuid();
-  originalBody["http://mu.semte.ch/vocabularies/core/uuid"]=id;
-  if ( !originalBody["@id"] ) {
+  originalBody["http://mu.semte.ch/vocabularies/core/uuid"] = id;
+  if (!originalBody["@id"]) {
     originalBody["@id"] = `http://data.lblod.info/submissions/${id}`;
   }
-  if ( !originalBody["status"] ) { // concept status by default
+  if (!originalBody["status"]) { // concept status by default
     originalBody["status"] = CONCEPT_STATUS;
   }
   return originalBody;
@@ -31,7 +31,7 @@ export async function enrichBody(originalBody) {
 
 export function extractInfoFromTriples(triples) {
   const key = _.get(triples.find(
-      (triple) => triple.predicate.value === 'http://mu.semte.ch/vocabularies/account/key'), "object.value");
+    (triple) => triple.predicate.value === 'http://mu.semte.ch/vocabularies/account/key'), "object.value");
 
   const vendor = _.get(triples.find(
     (triple) => triple.predicate.value === 'http://purl.org/pav/providedBy'), "object.value");
@@ -52,7 +52,7 @@ export function validateExtractedInfo(extracted) {
   const {status} = extracted;
   const errors = [];
   if (status !== CONCEPT_STATUS && status !== SUBMITTABLE_STATUS)
-    errors.push({ title: "Invalid status" });
+    errors.push({title: `property status is not valid.`});
 
-  return { isValid: errors.length === 0, errors };
+  return {isValid: errors.length === 0, errors};
 }

@@ -44,14 +44,6 @@ app.post('/melding', async function (req, res, next) {
         }
       }
 
-      const {key, vendor, organisation, submittedResource} = extracted;
-
-      // check if the resource has already been submitted
-      if (await isSubmitted(submittedResource)) {
-        res.status(409).send({errors: [{title: `The given submittedResource has already been submitted.`}]}).end();
-        return;
-      }
-
       // check if the extracted properties are valid
       const {isValid, errors} = validateExtractedInfo(extracted);
       if (!isValid) {
@@ -59,10 +51,26 @@ app.post('/melding', async function (req, res, next) {
         return;
       }
 
+      const {key, vendor, organisation, submittedResource} = extracted;
+
       // authenticate vendor
       const organisationID = await verifyKeyAndOrganisation(vendor, key, organisation);
       if (!organisationID) {
-        res.status(401).send({errors: [{title: "Invalid key"}]}).end();
+        res.status(401).send({
+          errors: [{
+            title: "Authentication failed, you do not have access to this resource."
+          }]
+        }).end();
+        return;
+      }
+
+      // check if the resource has already been submitted
+      if (await isSubmitted(submittedResource)) {
+        res.status(409).send({
+          errors: [{
+            title: `The given submittedResource <${submittedResource}> has already been submitted.`
+          }]
+        }).end();
         return;
       }
 
@@ -72,8 +80,7 @@ app.post('/melding', async function (req, res, next) {
       const uri = await storeSubmission(triples, submissionGraph, fileGraph);
       res.status(201).send({uri}).end();
     }
-  } catch
-    (e) {
+  } catch (e) {
     console.error(e);
     next(new Error(e.message));
   }
