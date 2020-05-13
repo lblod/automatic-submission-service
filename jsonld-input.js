@@ -40,7 +40,7 @@ export function extractInfoFromTriples(triples) {
     (triple) => triple.predicate.value === 'http://purl.org/pav/createdBy'), "object.value");
 
   const submittedResource = _.get(triples.find(
-    (triple) => triple.predicate.value === 'http://www.w3.org/ns/prov#atLocation'), "object.value");
+    (triple) => triple.predicate.value === 'http://purl.org/dc/terms/subject'), "object.value");
 
   const status = _.get(triples.find(
     (triple) => triple.predicate.value === 'http://www.w3.org/ns/adms#status'), "object.value");

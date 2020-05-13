@@ -36,7 +36,7 @@ app.post('/melding', async function (req, res, next) {
           console.debug(body);
           res.status(400).send({
             errors: [{
-              title: `Invalid JSON-LD payload: missing ${prop}`,
+              title: `Invalid JSON-LD payload: property ${prop.toLocaleUpperCase()} is missing or invalid.`,
               extractedTriples: triples
             }]
           }).end();
@@ -58,7 +58,8 @@ app.post('/melding', async function (req, res, next) {
       if (!organisationID) {
         res.status(401).send({
           errors: [{
-            title: "Authentication failed, you do not have access to this resource."
+            title: "Authentication failed, you do not have access to this resource. " +
+              "If this should not be the case, please contact us at digitaalABB@vlaanderen.be for login credentials."
           }]
         }).end();
         return;
@@ -81,8 +82,14 @@ app.post('/melding', async function (req, res, next) {
       res.status(201).send({uri}).end();
     }
   } catch (e) {
+    console.log('WARNING: something went wrong while processing an auto-submission');
     console.error(e);
-    next(new Error(e.message));
+    res.status(400).send({
+      errors: [{
+        title: 'Something unexpected happened while processing the auto-submission request. ' +
+          'If this keeps occurring, please contact us at digitaalABB@vlaanderen.be.'
+      }]
+    }).end();
   }
 })
 ;
