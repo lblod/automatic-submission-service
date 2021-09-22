@@ -26,6 +26,11 @@ export async function enrichBody(originalBody) {
   if (!originalBody["status"]) { // concept status by default
     originalBody["status"] = CONCEPT_STATUS;
   }
+  if (originalBody["authentication"]) {
+    originalBody["authentication"]["@id"] = `http://data.lblod.info/authentications/${id}`;
+    originalBody["authentication"]["configuration"]["@id"] = `http://data.lblod.info/configurations/${id}`;
+    originalBody["authentication"]["credentials"]["@id"] = `http://data.lblod.info/credentials/${id}`;
+  }
   return originalBody;
 }
 
@@ -45,7 +50,13 @@ export function extractInfoFromTriples(triples) {
   const status = _.get(triples.find(
     (triple) => triple.predicate.value === 'http://www.w3.org/ns/adms#status'), "object.value");
 
-  return {key, vendor, organisation, submittedResource, status};
+  return {
+    key,
+    vendor,
+    organisation,
+    submittedResource,
+    status
+  };
 }
 
 export function validateExtractedInfo(extracted) {

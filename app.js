@@ -24,9 +24,9 @@ app.post('/melding', async function (req, res, next) {
 
       // enrich the body with minimum required json LD properties
       await enrichBody(body);
-
       // extracted the minimal required triples
       const triples = await jsonld.toRDF(body, {});
+
       const extracted = extractInfoFromTriples(triples);
 
       // check if the minimal required payload is available
@@ -91,5 +91,4 @@ app.post('/melding', async function (req, res, next) {
       }]
     }).end();
   }
-})
-;
+});

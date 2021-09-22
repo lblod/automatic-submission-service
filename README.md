@@ -130,6 +130,58 @@ Submissions can only be submitted by known organizations using the API key they 
 
 The service verifies the API key and permissions in the graph `http://mu.semte.ch/graphs/automatic-submission`. The organization the agents acts on behalf of should have a `mu:uuid`.
 
+A second layer of authentication can be configured
+
+#### Basic auth
+
+```
+{
+  "href": "http://raadpleegomgeving.tielt-winge.be/90283409812734",
+  "authentication": {
+    "configuration": {
+      "scheme": "basic"
+    },
+    "credentials": {
+      "username": "foo",
+      "password": "bar"
+    }
+  },
+  "organization": "http://data.lblod.info/id/bestuurseenheden/2498239",
+  "publisher": {
+    "uri": "http://data.lblod.info/vendors/cipal-schaubroeck",
+    "key": "AE86-GT86"
+  },
+  "status": "http://lblod.data.gift/concepts/f6330856-e261-430f-b949-8e510d20d0ff",
+  "submittedResource": "http://data.tielt-winge.be/besluiten/2398230"
+}
+```
+
+#### Oath2
+
+```
+{
+  "href": "http://raadpleegomgeving.tielt-winge.be/90283409812734",
+  "authentication":{
+    "configuration": {
+      "scheme": "oauth2",
+      "flow": "client",
+      "resource": "private",
+      "token": "https://example.com/oauth2/access/tokenserver"
+    },
+    "credentials": {
+      "clientId": "foo",
+      "clientSecret": "bar"
+    }
+  },
+  "organization": "http://data.lblod.info/id/bestuurseenheden/2498239",
+  "publisher": {
+    "uri": "http://data.lblod.info/vendors/cipal-schaubroeck",
+    "key": "AE86-GT86"
+  },
+  "status": "http://lblod.data.gift/concepts/f6330856-e261-430f-b949-8e510d20d0ff",
+  "submittedResource": "http://data.tielt-winge.be/besluiten/2398230"
+}
+```
 
 ### Model
 #### Used prefixes
