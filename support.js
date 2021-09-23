@@ -21,6 +21,7 @@ const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
   PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
   PREFIX http: <http://www.w3.org/2011/http#>
   PREFIX rpioHttp: <http://redpencil.data.gift/vocabularies/http/>
+  PREFIX dgftSec: <http://lblod.data.gift/vocabularies/security/>
 `;
 
 async function isSubmitted(resource) {
@@ -74,8 +75,7 @@ async function triplesToTurtle(triples) {
   return promise;
 }
 
-async function storeSubmission(triples, submissionGraph, fileGraph) {
-
+async function storeSubmission(triples, submissionGraph, fileGraph, authenticationConfiguration) {
   const submittedResource = findSubmittedResource(triples);
   const turtle = await triplesToTurtle(triples);
   await update(`
@@ -102,6 +102,7 @@ INSERT {
   const taskUri = `http://data.lblod.info/id/automatic-submission-task/${taskId}`;
   const timestamp = new Date();
   const meldingUri = extractMeldingUri(triples);
+
   await update(`
 ${PREFIXES}
 INSERT DATA {
@@ -119,6 +120,13 @@ INSERT DATA {
   const remoteDataId = uuid();
   const remoteDataUri = `http://data.lblod.info/id/remote-data-objects/${remoteDataId}`;
   const locationUrl = extractLocationUrl(triples);
+
+  let authConfigurationTriple = '';
+
+  if(authenticationConfiguration){
+    authConfigurationTriple = `${sparqlEscapeUri(remoteDataUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(authenticationConfiguration)}.`;
+  }
+
   await update(`
 ${PREFIXES}
 INSERT DATA {
@@ -131,6 +139,8 @@ INSERT DATA {
                                         adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
                                         dct:created ${sparqlEscapeDateTime(timestamp)};
                                         dct:modified ${sparqlEscapeDateTime(timestamp)}.
+
+   ${authConfigurationTriple}
 
    <http://data.lblod.info/request-headers/accept/text/html> a http:RequestHeader;
                                                                       http:fieldValue "text/html";

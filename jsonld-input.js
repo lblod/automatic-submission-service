@@ -50,12 +50,16 @@ export function extractInfoFromTriples(triples) {
   const status = _.get(triples.find(
     (triple) => triple.predicate.value === 'http://www.w3.org/ns/adms#status'), "object.value");
 
+  const authenticationConfiguration = _.get(triples.find(
+    (triple) => triple.predicate.value === 'http://lblod.data.gift/vocabularies/security/targetAuthenticationConfiguration'), "object.value");
+
   return {
     key,
     vendor,
     organisation,
     submittedResource,
-    status
+    status,
+    authenticationConfiguration
   };
 }
 
