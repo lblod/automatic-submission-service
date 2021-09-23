@@ -27,9 +27,9 @@ export async function enrichBody(originalBody) {
     originalBody["status"] = CONCEPT_STATUS;
   }
   if (originalBody["authentication"]) {
-    originalBody["authentication"]["@id"] = `http://data.lblod.info/authentications/${id}`;
-    originalBody["authentication"]["configuration"]["@id"] = `http://data.lblod.info/configurations/${id}`;
-    originalBody["authentication"]["credentials"]["@id"] = `http://data.lblod.info/credentials/${id}`;
+    originalBody["authentication"]["@id"] = `http://data.lblod.info/authentications/${uuid()}`;
+    originalBody["authentication"]["configuration"]["@id"] = `http://data.lblod.info/configurations/${uuid()}`;
+    originalBody["authentication"]["credentials"]["@id"] = `http://data.lblod.info/credentials/${uuid()}`;
   }
   return originalBody;
 }
