@@ -4,7 +4,8 @@ import {Writer} from 'n3';
 
 //Patched sparqlEscapeUri, see https://github.com/mu-semtech/mu-javascript-template/pull/34/files
 const sparqlEscapeUri = function( value ){
-  return '<' + value.replace(/[\\"<>]/g, function(match) { return '\\' + match; }) + '>';
+  console.log('Warning: using a monkey patched sparqlEscapeUri.');
+  return `<${value.replace(/[\\"<>]/g, (match) => `\\${match}`)}>`;
 };
 
 const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
