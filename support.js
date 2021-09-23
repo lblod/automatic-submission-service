@@ -1,6 +1,11 @@
 import {querySudo as query, updateSudo as update} from '@lblod/mu-auth-sudo';
-import {uuid, sparqlEscapeUri, sparqlEscapeString, sparqlEscapeDateTime} from 'mu';
+import {uuid, sparqlEscapeString, sparqlEscapeDateTime} from 'mu';
 import {Writer} from 'n3';
+
+//Patched sparqlEscapeUri, see https://github.com/mu-semtech/mu-javascript-template/pull/34/files
+const sparqlEscapeUri = function( value ){
+  return '<' + value.replace(/[\\"<>]/g, function(match) { return '\\' + match; }) + '>';
+};
 
 const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
   PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
