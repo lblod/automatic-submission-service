@@ -31,7 +31,7 @@ app.post('/melding', async function (req, res, next) {
 
       // check if the minimal required payload is available
       for (let prop in extracted) {
-        if (!extracted[prop] && prop != 'securityConfiguration') { //TODO: if required vs optional fields grow, this will need to be better
+        if (!extracted[prop] && prop != 'authenticationConfiguration') { //TODO: if required vs optional fields grow, this will need to be better
           console.log(`WARNING: received an invalid JSON-LD payload! Could not extract ${prop}`);
           console.debug(body);
           res.status(400).send({
