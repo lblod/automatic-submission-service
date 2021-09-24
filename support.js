@@ -85,44 +85,44 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
   const submittedResource = findSubmittedResource(triples);
   const turtle = await triplesToTurtle(triples);
   await update(`
-${PREFIXES}
-INSERT DATA {
-  GRAPH ${sparqlEscapeUri(submissionGraph)} {
-     ${turtle}
-     ${sparqlEscapeUri(submittedResource)} a foaf:Document, ext:SubmissionDocument .
-  }
-}`);
-  await update(`
-${PREFIXES}
-INSERT {
-  GRAPH ${sparqlEscapeUri(submissionGraph)} {
-     ${sparqlEscapeUri(submittedResource)} mu:uuid ${sparqlEscapeString(uuid())} .
-  }
-} WHERE {
-  GRAPH ${sparqlEscapeUri(submissionGraph)} {
-     ${sparqlEscapeUri(submittedResource)} a foaf:Document .
-     FILTER NOT EXISTS { ${sparqlEscapeUri(submittedResource)} mu:uuid ?uuid . }
-  }
-}`);
+    ${PREFIXES}
+    INSERT DATA {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+         ${turtle}
+         ${sparqlEscapeUri(submittedResource)} a foaf:Document, ext:SubmissionDocument .
+      }
+    }`);
+      await update(`
+    ${PREFIXES}
+    INSERT {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+         ${sparqlEscapeUri(submittedResource)} mu:uuid ${sparqlEscapeString(uuid())} .
+      }
+    } WHERE {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+         ${sparqlEscapeUri(submittedResource)} a foaf:Document .
+         FILTER NOT EXISTS { ${sparqlEscapeUri(submittedResource)} mu:uuid ?uuid . }
+      }
+    }`);
   const taskId = uuid();
   const taskUri = `http://data.lblod.info/id/automatic-submission-task/${taskId}`;
   const timestamp = new Date();
   const meldingUri = extractMeldingUri(triples);
 
   await update(`
-${PREFIXES}
-INSERT DATA {
-  GRAPH ${sparqlEscapeUri(submissionGraph)} {
-     ${sparqlEscapeUri(taskUri)} a melding:AutomaticSubmissionTask;
-                                    mu:uuid ${sparqlEscapeString(taskId)};
-                                    dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
-                                    adms:status <http://lblod.data.gift/automatische-melding-statuses/not-started>;
-                                    dct:created ${sparqlEscapeDateTime(timestamp)};
-                                    dct:modified ${sparqlEscapeDateTime(timestamp)};
-                                    prov:generated ${sparqlEscapeUri(meldingUri)}.
-  }
-}
-`);
+    ${PREFIXES}
+    INSERT DATA {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+         ${sparqlEscapeUri(taskUri)} a melding:AutomaticSubmissionTask;
+                                        mu:uuid ${sparqlEscapeString(taskId)};
+                                        dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
+                                        adms:status <http://lblod.data.gift/automatische-melding-statuses/not-started>;
+                                        dct:created ${sparqlEscapeDateTime(timestamp)};
+                                        dct:modified ${sparqlEscapeDateTime(timestamp)};
+                                        prov:generated ${sparqlEscapeUri(meldingUri)}.
+      }
+    }
+    `);
   const remoteDataId = uuid();
   const remoteDataUri = `http://data.lblod.info/id/remote-data-objects/${remoteDataId}`;
   const locationUrl = extractLocationUrl(triples);
@@ -134,31 +134,31 @@ INSERT DATA {
   }
 
   await update(`
-${PREFIXES}
-INSERT DATA {
-  GRAPH ${sparqlEscapeUri(fileGraph)} {
-      ${sparqlEscapeUri(remoteDataUri)} a nfo:RemoteDataObject, nfo:FileDataObject;
-                                        rpioHttp:requestHeader <http://data.lblod.info/request-headers/accept/text/html>;
-                                        mu:uuid ${sparqlEscapeString(remoteDataId)};
-                                        nie:url ${sparqlEscapeUri(locationUrl)};
-                                        dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
-                                        adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
-                                        dct:created ${sparqlEscapeDateTime(timestamp)};
-                                        dct:modified ${sparqlEscapeDateTime(timestamp)}.
+    ${PREFIXES}
+    INSERT DATA {
+      GRAPH ${sparqlEscapeUri(fileGraph)} {
+          ${sparqlEscapeUri(remoteDataUri)} a nfo:RemoteDataObject, nfo:FileDataObject;
+                                            rpioHttp:requestHeader <http://data.lblod.info/request-headers/accept/text/html>;
+                                            mu:uuid ${sparqlEscapeString(remoteDataId)};
+                                            nie:url ${sparqlEscapeUri(locationUrl)};
+                                            dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
+                                            adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
+                                            dct:created ${sparqlEscapeDateTime(timestamp)};
+                                            dct:modified ${sparqlEscapeDateTime(timestamp)}.
 
-   ${authConfigurationTriple}
+       ${authConfigurationTriple}
 
-   <http://data.lblod.info/request-headers/accept/text/html> a http:RequestHeader;
-                                                                      http:fieldValue "text/html";
-                                                                      http:fieldName "Accept";
-                                                                      http:hdrName <http://www.w3.org/2011/http-headers#accept>.
-  }
+       <http://data.lblod.info/request-headers/accept/text/html> a http:RequestHeader;
+                                                                          http:fieldValue "text/html";
+                                                                          http:fieldName "Accept";
+                                                                          http:hdrName <http://www.w3.org/2011/http-headers#accept>.
+      }
 
-  GRAPH ${sparqlEscapeUri(submissionGraph)} {
-     ${sparqlEscapeUri(meldingUri)} nie:hasPart ${sparqlEscapeUri(remoteDataUri)}.
-  }
-}
-`);
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+         ${sparqlEscapeUri(meldingUri)} nie:hasPart ${sparqlEscapeUri(remoteDataUri)}.
+      }
+    }
+    `);
 
   //update created-at/modified-at for submission
   await update(`
@@ -176,15 +176,15 @@ INSERT DATA {
 
 async function verifyKeyAndOrganisation(vendor, key, organisation) {
   const result = await query(`
-${PREFIXES}
-SELECT DISTINCT ?organisationID WHERE  {
-  GRAPH <http://mu.semte.ch/graphs/automatic-submission> {
-    ${sparqlEscapeUri(vendor)} a foaf:Agent;
-           muAccount:key ${sparqlEscapeString(key)};
-           muAccount:canActOnBehalfOf ${sparqlEscapeUri(organisation)}.
-   }
-   ${sparqlEscapeUri(organisation)} mu:uuid ?organisationID.
-}`);
+    ${PREFIXES}
+    SELECT DISTINCT ?organisationID WHERE  {
+      GRAPH <http://mu.semte.ch/graphs/automatic-submission> {
+        ${sparqlEscapeUri(vendor)} a foaf:Agent;
+               muAccount:key ${sparqlEscapeString(key)};
+               muAccount:canActOnBehalfOf ${sparqlEscapeUri(organisation)}.
+       }
+       ${sparqlEscapeUri(organisation)} mu:uuid ?organisationID.
+    }`);
   if (result.results.bindings.length === 1) {
     return result.results.bindings[0].organisationID.value;
   } else {
