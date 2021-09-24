@@ -2,6 +2,9 @@ import {querySudo as query, updateSudo as update} from '@lblod/mu-auth-sudo';
 import {uuid, sparqlEscapeString, sparqlEscapeDateTime} from 'mu';
 import {Writer} from 'n3';
 
+const BASIC_AUTH = 'https://www.w3.org/2019/wot/security#BasicSecurityScheme';
+const OAUTH2 = 'https://www.w3.org/2019/wot/security#OAuth2SecurityScheme';
+
 //Patched sparqlEscapeUri, see https://github.com/mu-semtech/mu-javascript-template/pull/34/files
 const sparqlEscapeUri = function( value ){
   console.log('Warning: using a monkey patched sparqlEscapeUri.');
@@ -28,6 +31,8 @@ const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
   PREFIX http: <http://www.w3.org/2011/http#>
   PREFIX rpioHttp: <http://redpencil.data.gift/vocabularies/http/>
   PREFIX dgftSec: <http://lblod.data.gift/vocabularies/security/>
+  PREFIX dgftOauth: <http://kanselarij.vo.data.gift/vocabularies/oauth-2.0-session/>
+  PREFIX wotSec: <https://www.w3.org/2019/wot/security#>
 `;
 
 async function isSubmitted(resource) {
@@ -127,11 +132,15 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
   const remoteDataUri = `http://data.lblod.info/id/remote-data-objects/${remoteDataId}`;
   const locationUrl = extractLocationUrl(triples);
 
-  let authConfigurationTriple = '';
-
-  if(authenticationConfiguration){
-    authConfigurationTriple = `${sparqlEscapeUri(remoteDataUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(authenticationConfiguration)}.`;
-  }
+  // We need to attach a cloned version of the authentication data, because:
+  // 1. donwloadUrl will delete credentials after final state
+  // 2. in a later phase, when attachments are fetched, these need to be reused.
+  // -> If not cloned, the credentials might not be availible for the download of the attachments
+  // Alternative: not delete the credentials after download, but the not always clear when exaclty query may be deleted.
+  // E.g. after import-submission we're quite sure. But what if something goes wrong before that, or a download just takes longer.
+  // The highly aync process makes it complicated
+  // Note: probably some clean up background job might be needed. Needs perhaps a bit of better thinking
+  await attachClonedAuthenticationConfiguraton(remoteDataUri, meldingUri, fileGraph);
 
   await update(`
     ${PREFIXES}
@@ -145,8 +154,6 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
                                             adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
                                             dct:created ${sparqlEscapeDateTime(timestamp)};
                                             dct:modified ${sparqlEscapeDateTime(timestamp)}.
-
-       ${authConfigurationTriple}
 
        <http://data.lblod.info/request-headers/accept/text/html> a http:RequestHeader;
                                                                           http:fieldValue "text/html";
@@ -172,6 +179,115 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
   `);
 
   return taskUri;
+}
+
+async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submissionUri, remoteObjectGraph){
+  const getInfoQuery = `
+    ${PREFIXES}
+    SELECT DISTINCT ?graph ?secType ?authenticationConfiguration WHERE {
+     GRAPH ?graph {
+       ${sparqlEscapeUri(submissionUri)} dgftSec:targetAuthenticationConfiguration ?authenticationConfiguration.
+       ?authenticationConfiguration dgftSec:securityConfiguration/rdf:type ?secType .
+     }
+    }
+  `;
+
+  const authData = parseResult(await query(getInfoQuery))[0];
+  const newAuthConf = `http://data.lblod.info/authentications/${uuid()}`;
+  const newConf = `http://data.lblod.info/configurations/${uuid()}`;
+  const newCreds = `http://data.lblod.info/credentials/${uuid()}`;
+
+  let cloneQuery = ``;
+
+  if(!authData){
+    return null;
+  }
+  else if(authData.secType === BASIC_AUTH){
+    cloneQuery = `
+      ${PREFIXES}
+      INSERT {
+        GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
+          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(newAuthConf)} .
+        }
+
+        GRAPH ${sparqlEscapeUri(authData.graph)} {
+          ${sparqlEscapeUri(newAuthConf)} dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
+          ${sparqlEscapeUri(newCreds)} meb:username ?user ;
+            muAccount:password ?pass .
+
+          ${sparqlEscapeUri(newAuthConf)} dgftSec:securityConfiguration ${sparqlEscapeUri(newConf)}.
+          ${sparqlEscapeUri(newConf)} ?srcConfP ?srcConfO.
+        }
+      }
+      WHERE {
+        ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:securityConfiguration ?srcConfg.
+        ?srcConfg ?srcConfP ?srcConfO.
+
+       ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:secrets ?srcSecrets.
+       ?srcSecrets  meb:username ?user ;
+         muAccount:password ?pass .
+     }
+   `;
+  }
+  else if(authData.secType == OAUTH2){
+    cloneQuery = `
+      ${PREFIXES}
+      INSERT {
+        GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
+          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(newAuthConf)} .
+        }
+
+        GRAPH ${sparqlEscapeUri(authData.graph)} {
+          ${sparqlEscapeUri(newAuthConf)} dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
+          ${sparqlEscapeUri(newCreds)} oauthSession:clientId ?clientId ;
+            oauthSession:clientSecret ?clientSecret .
+
+          ${sparqlEscapeUri(newAuthConf)} dgftSec:securityConfiguration ${sparqlEscapeUri(newConf)}.
+          ${sparqlEscapeUri(newConf)} ?srcConfP ?srcConfO.
+        }
+      }
+      WHERE {
+        ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:securityConfiguration ?srcConfg.
+        ?srcConfg ?srcConfP ?srcConfO.
+
+       ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:secrets ?srcSecrets.
+       ?srcSecrets  oauthSession:clientId ?clientId ;
+         oauthSession:clientSecret ?clientSecret .
+     }
+   `;
+  }
+  else {
+    throw `Unsupported Security type ${authData.secType}`;
+  }
+
+  await update(cloneQuery);
+
+  return { newAuthConf, newConf, newCreds };
+}
+
+/**
+ * convert results of select query to an array of objects.
+ * courtesy: Niels Vandekeybus & Felix
+ * @method parseResult
+ * @return {Array}
+ */
+ export function parseResult( result ) {
+  if(!(result.results && result.results.bindings.length)) return [];
+
+  const bindingKeys = result.head.vars;
+  return result.results.bindings.map((row) => {
+    const obj = {};
+    bindingKeys.forEach((key) => {
+      if(row[key] && row[key].datatype == 'http://www.w3.org/2001/XMLSchema#integer' && row[key].value){
+        obj[key] = parseInt(row[key].value);
+      }
+      else if(row[key] && row[key].datatype == 'http://www.w3.org/2001/XMLSchema#dateTime' && row[key].value){
+        obj[key] = new Date(row[key].value);
+      }
+      else obj[key] = row[key] ? row[key].value:undefined;
+    });
+    return obj;
+  });
 }
 
 async function verifyKeyAndOrganisation(vendor, key, organisation) {
