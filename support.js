@@ -11,7 +11,8 @@ const sparqlEscapeUri = function( value ){
   return `<${value.replace(/[\\"<>]/g, (match) => `\\${match}`)}>`;
 };
 
-const PREFIXES = `PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
+const PREFIXES = `
+  PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
   PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
   PREFIX pav:   <http://purl.org/pav/>
   PREFIX dct:   <http://purl.org/dc/terms/>
@@ -239,8 +240,8 @@ async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submi
 
         GRAPH ${sparqlEscapeUri(authData.graph)} {
           ${sparqlEscapeUri(newAuthConf)} dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
-          ${sparqlEscapeUri(newCreds)} oauthSession:clientId ?clientId ;
-            oauthSession:clientSecret ?clientSecret .
+          ${sparqlEscapeUri(newCreds)} dgftOauth:clientId ?clientId ;
+            dgftOauth:clientSecret ?clientSecret .
 
           ${sparqlEscapeUri(newAuthConf)} dgftSec:securityConfiguration ${sparqlEscapeUri(newConf)}.
           ${sparqlEscapeUri(newConf)} ?srcConfP ?srcConfO.
@@ -251,8 +252,8 @@ async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submi
         ?srcConfg ?srcConfP ?srcConfO.
 
        ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:secrets ?srcSecrets.
-       ?srcSecrets  oauthSession:clientId ?clientId ;
-         oauthSession:clientSecret ?clientSecret .
+       ?srcSecrets  dgftOauth:clientId ?clientId ;
+         dgftOauth:clientSecret ?clientSecret .
      }
    `;
   }
