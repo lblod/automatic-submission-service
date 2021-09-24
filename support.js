@@ -88,98 +88,110 @@ async function triplesToTurtle(triples) {
 }
 
 async function storeSubmission(triples, submissionGraph, fileGraph, authenticationConfiguration) {
-  const submittedResource = findSubmittedResource(triples);
-  const turtle = await triplesToTurtle(triples);
-  await update(`
-    ${PREFIXES}
-    INSERT DATA {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-         ${turtle}
-         ${sparqlEscapeUri(submittedResource)} a foaf:Document, ext:SubmissionDocument .
-      }
-    }`);
-      await update(`
-    ${PREFIXES}
-    INSERT {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-         ${sparqlEscapeUri(submittedResource)} mu:uuid ${sparqlEscapeString(uuid())} .
-      }
-    } WHERE {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-         ${sparqlEscapeUri(submittedResource)} a foaf:Document .
-         FILTER NOT EXISTS { ${sparqlEscapeUri(submittedResource)} mu:uuid ?uuid . }
-      }
-    }`);
-  const taskId = uuid();
-  const taskUri = `http://data.lblod.info/id/automatic-submission-task/${taskId}`;
-  const timestamp = new Date();
-  const meldingUri = extractMeldingUri(triples);
+  let newAuthConf = {};
+  try {
+    const submittedResource = findSubmittedResource(triples);
+    const turtle = await triplesToTurtle(triples);
+    await update(`
+      ${PREFIXES}
+      INSERT DATA {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+           ${turtle}
+           ${sparqlEscapeUri(submittedResource)} a foaf:Document, ext:SubmissionDocument .
+        }
+      }`);
+        await update(`
+      ${PREFIXES}
+      INSERT {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+           ${sparqlEscapeUri(submittedResource)} mu:uuid ${sparqlEscapeString(uuid())} .
+        }
+      } WHERE {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+           ${sparqlEscapeUri(submittedResource)} a foaf:Document .
+           FILTER NOT EXISTS { ${sparqlEscapeUri(submittedResource)} mu:uuid ?uuid . }
+        }
+      }`);
+    const taskId = uuid();
+    const taskUri = `http://data.lblod.info/id/automatic-submission-task/${taskId}`;
+    const timestamp = new Date();
+    const meldingUri = extractMeldingUri(triples);
 
-  await update(`
-    ${PREFIXES}
-    INSERT DATA {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-         ${sparqlEscapeUri(taskUri)} a melding:AutomaticSubmissionTask;
-                                        mu:uuid ${sparqlEscapeString(taskId)};
-                                        dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
-                                        adms:status <http://lblod.data.gift/automatische-melding-statuses/not-started>;
-                                        dct:created ${sparqlEscapeDateTime(timestamp)};
-                                        dct:modified ${sparqlEscapeDateTime(timestamp)};
-                                        prov:generated ${sparqlEscapeUri(meldingUri)}.
+    await update(`
+      ${PREFIXES}
+      INSERT DATA {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+           ${sparqlEscapeUri(taskUri)} a melding:AutomaticSubmissionTask;
+                                          mu:uuid ${sparqlEscapeString(taskId)};
+                                          dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
+                                          adms:status <http://lblod.data.gift/automatische-melding-statuses/not-started>;
+                                          dct:created ${sparqlEscapeDateTime(timestamp)};
+                                          dct:modified ${sparqlEscapeDateTime(timestamp)};
+                                          prov:generated ${sparqlEscapeUri(meldingUri)}.
+        }
       }
-    }
+      `);
+    const remoteDataId = uuid();
+    const remoteDataUri = `http://data.lblod.info/id/remote-data-objects/${remoteDataId}`;
+    const locationUrl = extractLocationUrl(triples);
+
+    // We need to attach a cloned version of the authentication data, because:
+    // 1. donwloadUrl will delete credentials after final state
+    // 2. in a later phase, when attachments are fetched, these need to be reused.
+    // -> If not cloned, the credentials might not be availible for the download of the attachments
+    // Alternative: not delete the credentials after download, but the not always clear when exaclty query may be deleted.
+    // E.g. after import-submission we're quite sure. But what if something goes wrong before that, or a download just takes longer.
+    // The highly aync process makes it complicated
+    // Note: probably some clean up background job might be needed. Needs perhaps a bit of better thinking
+    newAuthConf = await attachClonedAuthenticationConfiguraton(remoteDataUri, meldingUri, fileGraph);
+
+    await update(`
+      ${PREFIXES}
+      INSERT DATA {
+        GRAPH ${sparqlEscapeUri(fileGraph)} {
+            ${sparqlEscapeUri(remoteDataUri)} a nfo:RemoteDataObject, nfo:FileDataObject;
+                                              rpioHttp:requestHeader <http://data.lblod.info/request-headers/accept/text/html>;
+                                              mu:uuid ${sparqlEscapeString(remoteDataId)};
+                                              nie:url ${sparqlEscapeUri(locationUrl)};
+                                              dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
+                                              adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
+                                              dct:created ${sparqlEscapeDateTime(timestamp)};
+                                              dct:modified ${sparqlEscapeDateTime(timestamp)}.
+
+         <http://data.lblod.info/request-headers/accept/text/html> a http:RequestHeader;
+                                                                            http:fieldValue "text/html";
+                                                                            http:fieldName "Accept";
+                                                                            http:hdrName <http://www.w3.org/2011/http-headers#accept>.
+        }
+
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+           ${sparqlEscapeUri(meldingUri)} nie:hasPart ${sparqlEscapeUri(remoteDataUri)}.
+        }
+      }
+      `);
+
+    //update created-at/modified-at for submission
+    await update(`
+      ${PREFIXES}
+      INSERT DATA {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+            ${sparqlEscapeUri(extractSubmissionUrl(triples))}  dct:created  ${sparqlEscapeDateTime(new Date())}.
+            ${sparqlEscapeUri(extractSubmissionUrl(triples))}  dct:modified ${sparqlEscapeDateTime(new Date())}.
+        }
+      }
     `);
-  const remoteDataId = uuid();
-  const remoteDataUri = `http://data.lblod.info/id/remote-data-objects/${remoteDataId}`;
-  const locationUrl = extractLocationUrl(triples);
-
-  // We need to attach a cloned version of the authentication data, because:
-  // 1. donwloadUrl will delete credentials after final state
-  // 2. in a later phase, when attachments are fetched, these need to be reused.
-  // -> If not cloned, the credentials might not be availible for the download of the attachments
-  // Alternative: not delete the credentials after download, but the not always clear when exaclty query may be deleted.
-  // E.g. after import-submission we're quite sure. But what if something goes wrong before that, or a download just takes longer.
-  // The highly aync process makes it complicated
-  // Note: probably some clean up background job might be needed. Needs perhaps a bit of better thinking
-  await attachClonedAuthenticationConfiguraton(remoteDataUri, meldingUri, fileGraph);
-
-  await update(`
-    ${PREFIXES}
-    INSERT DATA {
-      GRAPH ${sparqlEscapeUri(fileGraph)} {
-          ${sparqlEscapeUri(remoteDataUri)} a nfo:RemoteDataObject, nfo:FileDataObject;
-                                            rpioHttp:requestHeader <http://data.lblod.info/request-headers/accept/text/html>;
-                                            mu:uuid ${sparqlEscapeString(remoteDataId)};
-                                            nie:url ${sparqlEscapeUri(locationUrl)};
-                                            dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
-                                            adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
-                                            dct:created ${sparqlEscapeDateTime(timestamp)};
-                                            dct:modified ${sparqlEscapeDateTime(timestamp)}.
-
-       <http://data.lblod.info/request-headers/accept/text/html> a http:RequestHeader;
-                                                                          http:fieldValue "text/html";
-                                                                          http:fieldName "Accept";
-                                                                          http:hdrName <http://www.w3.org/2011/http-headers#accept>.
-      }
-
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-         ${sparqlEscapeUri(meldingUri)} nie:hasPart ${sparqlEscapeUri(remoteDataUri)}.
-      }
+    return taskUri;
+  }
+  catch(e){
+    console.error('Something went wrong during the storage of submission');
+    console.error(e);
+    console.info('Cleaning credentials');
+    await cleanCredentials(authenticationConfiguration);
+    if(newAuthConf.newAuthConf){
+      await cleanCredentials(newAuthConf.newAuthConf);
     }
-    `);
-
-  //update created-at/modified-at for submission
-  await update(`
-    ${PREFIXES}
-    INSERT DATA {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-          ${sparqlEscapeUri(extractSubmissionUrl(triples))}  dct:created  ${sparqlEscapeDateTime(new Date())}.
-          ${sparqlEscapeUri(extractSubmissionUrl(triples))}  dct:modified ${sparqlEscapeDateTime(new Date())}.
-      }
-    }
-  `);
-
-  return taskUri;
+    throw e;
+  }
 }
 
 async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submissionUri, remoteObjectGraph){
@@ -264,6 +276,24 @@ async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submi
   await update(cloneQuery);
 
   return { newAuthConf, newConf, newCreds };
+}
+
+async function cleanCredentials(authenticationConfigurationUri){
+  let cleanQuery = `
+      ${PREFIXES}
+      DELETE {
+        GRAPH ?g {
+          ?srcSecrets ?secretsP ?secretsO.
+        }
+      }
+      WHERE {
+        GRAPH ?g {
+         ${sparqlEscapeUri(authenticationConfigurationUri)} dgftSec:secrets ?srcSecrets.
+         ?srcSecrets ?secretsP ?secretsO.
+       }
+     }
+   `;
+  await update(cleanQuery);
 }
 
 /**
