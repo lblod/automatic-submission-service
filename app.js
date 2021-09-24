@@ -24,14 +24,14 @@ app.post('/melding', async function (req, res, next) {
 
       // enrich the body with minimum required json LD properties
       await enrichBody(body);
-
       // extracted the minimal required triples
       const triples = await jsonld.toRDF(body, {});
+
       const extracted = extractInfoFromTriples(triples);
 
       // check if the minimal required payload is available
       for (let prop in extracted) {
-        if (!extracted[prop]) {
+        if (!extracted[prop] && prop != 'authenticationConfiguration') { //TODO: if required vs optional fields grow, this will need to be better
           console.log(`WARNING: received an invalid JSON-LD payload! Could not extract ${prop}`);
           console.debug(body);
           res.status(400).send({
@@ -51,7 +51,7 @@ app.post('/melding', async function (req, res, next) {
         return;
       }
 
-      const {key, vendor, organisation, submittedResource} = extracted;
+      const { key, vendor, organisation, submittedResource, authenticationConfiguration } = extracted;
 
       // authenticate vendor
       const organisationID = await verifyKeyAndOrganisation(vendor, key, organisation);
@@ -78,7 +78,7 @@ app.post('/melding', async function (req, res, next) {
       // process the new auto-submission
       const submissionGraph = `http://mu.semte.ch/graphs/organizations/${organisationID}/LoketLB-toezichtGebruiker`;
       const fileGraph = "http://mu.semte.ch/graphs/public";
-      const uri = await storeSubmission(triples, submissionGraph, fileGraph);
+      const uri = await storeSubmission(triples, submissionGraph, fileGraph, authenticationConfiguration);
       res.status(201).send({uri}).end();
     }
   } catch (e) {
@@ -91,5 +91,4 @@ app.post('/melding', async function (req, res, next) {
       }]
     }).end();
   }
-})
-;
+});
