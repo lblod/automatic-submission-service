@@ -156,7 +156,7 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
                                               rpioHttp:requestHeader <http://data.lblod.info/request-headers/accept/text/html>;
                                               mu:uuid ${sparqlEscapeString(remoteDataId)};
                                               nie:url ${sparqlEscapeUri(locationUrl)};
-                                              dct:creator dct:creator ${sparqlEscapeUri(CREATOR)};
+                                              dct:creator ${sparqlEscapeUri(CREATOR)};
                                               adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
                                               dct:created ${sparqlEscapeDateTime(timestamp)};
                                               dct:modified ${sparqlEscapeDateTime(timestamp)}.
