@@ -1,5 +1,5 @@
 import {app, errorHandler} from 'mu';
-import {verifyKeyAndOrganisation, storeSubmission, isSubmitted} from './support';
+import { verifyKeyAndOrganisation, storeSubmission, isSubmitted, sendErrorAlert, cleanseRequestBody } from './support';
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
 import {enrichBody, extractInfoFromTriples, validateExtractedInfo} from "./jsonld-input";
@@ -56,6 +56,12 @@ app.post('/melding', async function (req, res, next) {
       // authenticate vendor
       const organisationID = await verifyKeyAndOrganisation(vendor, key, organisation);
       if (!organisationID) {
+        const detail = JSON.stringify(cleanseRequestBody(req.body), undefined, 2);
+        sendErrorAlert({
+          message: `Authentication failed, vendor does not have access to the organization or doesn't exist.` ,
+          detail,
+          reference: vendor
+        });
         res.status(401).send({
           errors: [{
             title: "Authentication failed, you do not have access to this resource. " +
@@ -82,8 +88,14 @@ app.post('/melding', async function (req, res, next) {
       res.status(201).send({uri}).end();
     }
   } catch (e) {
-    console.log('WARNING: something went wrong while processing an auto-submission');
-    console.error(e);
+    const detail = JSON.stringify( {
+      err: e,
+      req: cleanseRequestBody(req.body)
+    }, undefined, 2);
+    sendErrorAlert({
+      message: 'Something unexpected went wrong while processing an auto-submission request.',
+      detail,
+    });
     res.status(400).send({
       errors: [{
         title: 'Something unexpected happened while processing the auto-submission request. ' +

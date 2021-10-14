@@ -1,12 +1,14 @@
-import {querySudo as query, updateSudo as update} from '@lblod/mu-auth-sudo';
-import {uuid, sparqlEscapeString, sparqlEscapeDateTime} from 'mu';
-import {Writer} from 'n3';
+import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
+import { uuid, sparqlEscapeString, sparqlEscapeDateTime } from 'mu';
+import { Writer } from 'n3';
 
 const BASIC_AUTH = 'https://www.w3.org/2019/wot/security#BasicSecurityScheme';
 const OAUTH2 = 'https://www.w3.org/2019/wot/security#OAuth2SecurityScheme';
 
+const CREATOR = 'http://lblod.data.gift/services/automatic-submission-service';
+
 //Patched sparqlEscapeUri, see https://github.com/mu-semtech/mu-javascript-template/pull/34/files
-const sparqlEscapeUri = function( value ){
+const sparqlEscapeUri = function(value) {
   console.log('Warning: using a monkey patched sparqlEscapeUri.');
   return `<${value.replace(/[\\"<>]/g, (match) => `\\${match}`)}>`;
 };
@@ -51,21 +53,22 @@ async function isSubmitted(resource) {
 
 function extractSubmissionUrl(triples) {
   return triples.find((triple) =>
-    triple.predicate.value === "http://www.w3.org/1999/02/22-rdf-syntax-ns#type" &&
-    triple.object.value === "http://rdf.myexperiment.org/ontologies/base/Submission"
+      triple.predicate.value === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' &&
+      triple.object.value === 'http://rdf.myexperiment.org/ontologies/base/Submission'
   ).subject.value;
 }
 
 function findSubmittedResource(triples) {
-  return triples.find((triple) => triple.predicate.value === "http://purl.org/dc/terms/subject").object.value;
+  return triples.find((triple) => triple.predicate.value === 'http://purl.org/dc/terms/subject').object.value;
 }
 
 function extractLocationUrl(triples) {
-  return triples.find((triple) => triple.predicate.value === "http://www.w3.org/ns/prov#atLocation").object.value;
+  return triples.find((triple) => triple.predicate.value === 'http://www.w3.org/ns/prov#atLocation').object.value;
 }
 
 function extractMeldingUri(triples) {
-  return triples.find((triple) => triple.object.value === "http://rdf.myexperiment.org/ontologies/base/Submission").subject.value;
+  return triples.find(
+      (triple) => triple.object.value === 'http://rdf.myexperiment.org/ontologies/base/Submission').subject.value;
 }
 
 async function triplesToTurtle(triples) {
@@ -100,7 +103,7 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
            ${sparqlEscapeUri(submittedResource)} a foaf:Document, ext:SubmissionDocument .
         }
       }`);
-        await update(`
+    await update(`
       ${PREFIXES}
       INSERT {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
@@ -123,7 +126,7 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
            ${sparqlEscapeUri(taskUri)} a melding:AutomaticSubmissionTask;
                                           mu:uuid ${sparqlEscapeString(taskId)};
-                                          dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
+                                          dct:creator ${sparqlEscapeUri(CREATOR)};
                                           adms:status <http://lblod.data.gift/automatische-melding-statuses/not-started>;
                                           dct:created ${sparqlEscapeDateTime(timestamp)};
                                           dct:modified ${sparqlEscapeDateTime(timestamp)};
@@ -153,7 +156,7 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
                                               rpioHttp:requestHeader <http://data.lblod.info/request-headers/accept/text/html>;
                                               mu:uuid ${sparqlEscapeString(remoteDataId)};
                                               nie:url ${sparqlEscapeUri(locationUrl)};
-                                              dct:creator <http://lblod.data.gift/services/automatic-submission-service>;
+                                              dct:creator ${sparqlEscapeUri(CREATOR)};
                                               adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
                                               dct:created ${sparqlEscapeDateTime(timestamp)};
                                               dct:modified ${sparqlEscapeDateTime(timestamp)}.
@@ -181,20 +184,19 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
       }
     `);
     return taskUri;
-  }
-  catch(e){
+  } catch (e) {
     console.error('Something went wrong during the storage of submission');
     console.error(e);
     console.info('Cleaning credentials');
     await cleanCredentials(authenticationConfiguration);
-    if(newAuthConf.newAuthConf){
+    if (newAuthConf.newAuthConf) {
       await cleanCredentials(newAuthConf.newAuthConf);
     }
     throw e;
   }
 }
 
-async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submissionUri, remoteObjectGraph){
+async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submissionUri, remoteObjectGraph) {
   const getInfoQuery = `
     ${PREFIXES}
     SELECT DISTINCT ?graph ?secType ?authenticationConfiguration WHERE {
@@ -212,15 +214,15 @@ async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submi
 
   let cloneQuery = ``;
 
-  if(!authData){
+  if (!authData) {
     return null;
-  }
-  else if(authData.secType === BASIC_AUTH){
+  } else if (authData.secType === BASIC_AUTH) {
     cloneQuery = `
       ${PREFIXES}
       INSERT {
         GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
-          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(newAuthConf)} .
+          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(
+        newAuthConf)} .
         }
 
         GRAPH ${sparqlEscapeUri(authData.graph)} {
@@ -241,13 +243,13 @@ async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submi
          muAccount:password ?pass .
      }
    `;
-  }
-  else if(authData.secType == OAUTH2){
+  } else if (authData.secType == OAUTH2) {
     cloneQuery = `
       ${PREFIXES}
       INSERT {
         GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
-          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(newAuthConf)} .
+          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(
+        newAuthConf)} .
         }
 
         GRAPH ${sparqlEscapeUri(authData.graph)} {
@@ -268,17 +270,16 @@ async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submi
          dgftOauth:clientSecret ?clientSecret .
      }
    `;
-  }
-  else {
+  } else {
     throw `Unsupported Security type ${authData.secType}`;
   }
 
   await update(cloneQuery);
 
-  return { newAuthConf, newConf, newCreds };
+  return {newAuthConf, newConf, newCreds};
 }
 
-async function cleanCredentials(authenticationConfigurationUri){
+async function cleanCredentials(authenticationConfigurationUri) {
   let cleanQuery = `
       ${PREFIXES}
       DELETE {
@@ -302,20 +303,18 @@ async function cleanCredentials(authenticationConfigurationUri){
  * @method parseResult
  * @return {Array}
  */
- export function parseResult( result ) {
-  if(!(result.results && result.results.bindings.length)) return [];
+export function parseResult(result) {
+  if (!(result.results && result.results.bindings.length)) return [];
 
   const bindingKeys = result.head.vars;
   return result.results.bindings.map((row) => {
     const obj = {};
     bindingKeys.forEach((key) => {
-      if(row[key] && row[key].datatype == 'http://www.w3.org/2001/XMLSchema#integer' && row[key].value){
+      if (row[key] && row[key].datatype == 'http://www.w3.org/2001/XMLSchema#integer' && row[key].value) {
         obj[key] = parseInt(row[key].value);
-      }
-      else if(row[key] && row[key].datatype == 'http://www.w3.org/2001/XMLSchema#dateTime' && row[key].value){
+      } else if (row[key] && row[key].datatype == 'http://www.w3.org/2001/XMLSchema#dateTime' && row[key].value) {
         obj[key] = new Date(row[key].value);
-      }
-      else obj[key] = row[key] ? row[key].value:undefined;
+      } else obj[key] = row[key] ? row[key].value : undefined;
     });
     return obj;
   });
@@ -339,4 +338,41 @@ async function verifyKeyAndOrganisation(vendor, key, organisation) {
   }
 }
 
-export {isSubmitted, storeSubmission, verifyKeyAndOrganisation}
+function cleanseRequestBody(body) {
+  const cleansed = body;
+  delete cleansed.authentication;
+  delete cleansed.publisher.key;
+  return cleansed;
+}
+
+async function sendErrorAlert({message, detail, reference}) {
+  if (!message)
+    throw 'Error needs a message describing what went wrong.';
+  const id = uuid();
+  const uri = `http://data.lblod.info/errors/${id}`;
+  const q = `
+      PREFIX mu:   <http://mu.semte.ch/vocabularies/core/>
+      PREFIX oslc: <http://open-services.net/ns/core#>      
+      PREFIX dct:  <http://purl.org/dc/terms/>
+      
+      INSERT DATA {
+        GRAPH <http://mu.semte.ch/graphs/error> {
+            ${sparqlEscapeUri(uri)} a oslc:Error ;
+                    mu:uuid ${sparqlEscapeString(id)} ;
+                    dct:subject ${sparqlEscapeString('Automatic Submission Service')} ;
+                    oslc:message ${sparqlEscapeString(message)} ;
+                    dct:created ${sparqlEscapeDateTime(new Date().toISOString())} ;
+                    dct:creator ${sparqlEscapeUri(CREATOR)} .
+            ${reference ? `${sparqlEscapeUri(uri)} dct:references ${sparqlEscapeUri(reference)} .` : ''}        
+            ${detail ? `${sparqlEscapeUri(uri)} oslc:largePreview ""${sparqlEscapeString(detail)}"" .` : ''}        
+        }
+      }
+   `;
+  try {
+    await update(q);
+  } catch (e) {
+    console.warn(`[WARN] Something went wrong while trying to store an error.\nMessage: ${e}\nQuery: ${q}`);
+  }
+}
+
+export { isSubmitted, storeSubmission, verifyKeyAndOrganisation, sendErrorAlert, cleanseRequestBody };
