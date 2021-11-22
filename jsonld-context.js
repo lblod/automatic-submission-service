@@ -1,5 +1,7 @@
+import { AUTOMATIC_SUBMISSION_JSON_LD_CONTEXT_ENDPOINT } from './env';
+
 async function getContext() {
-  return 'https://lblod.data.gift/contexts/automatische-melding/v1/context.json';
+  return AUTOMATIC_SUBMISSION_JSON_LD_CONTEXT_ENDPOINT;
 }
 
 export { getContext };
