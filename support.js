@@ -1,17 +1,11 @@
 import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
-import { uuid, sparqlEscapeString, sparqlEscapeDateTime } from 'mu';
+import { uuid, sparqlEscapeString, sparqlEscapeDateTime, sparqlEscapeUri } from 'mu';
 import { Writer } from 'n3';
 
 const BASIC_AUTH = 'https://www.w3.org/2019/wot/security#BasicSecurityScheme';
 const OAUTH2 = 'https://www.w3.org/2019/wot/security#OAuth2SecurityScheme';
 
 const CREATOR = 'http://lblod.data.gift/services/automatic-submission-service';
-
-//Patched sparqlEscapeUri, see https://github.com/mu-semtech/mu-javascript-template/pull/34/files
-const sparqlEscapeUri = function(value) {
-  console.log('Warning: using a monkey patched sparqlEscapeUri.');
-  return `<${value.replace(/[\\"<>]/g, (match) => `\\${match}`)}>`;
-};
 
 const PREFIXES = `
   PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
