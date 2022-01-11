@@ -83,8 +83,7 @@ app.post('/melding', async function (req, res, next) {
 
       // process the new auto-submission
       const submissionGraph = `http://mu.semte.ch/graphs/organizations/${organisationID}/LoketLB-toezichtGebruiker`;
-      const fileGraph = "http://mu.semte.ch/graphs/public";
-      const uri = await storeSubmission(triples, submissionGraph, fileGraph, authenticationConfiguration);
+      const uri = await storeSubmission(triples, submissionGraph, submissionGraph, authenticationConfiguration);
       res.status(201).send({uri}).end();
     }
   } catch (e) {
