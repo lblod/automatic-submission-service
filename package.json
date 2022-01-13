@@ -1,6 +1,6 @@
 {
   "name": "automatic-submission-service",
-  "version": "0.12.0",
+  "version": "0.12.1",
   "description": "Microservice providing an API for external parties to process inzendingen voor toezicht.",
   "dependencies": {
     "@lblod/mu-auth-sudo": "^0.2.0",
