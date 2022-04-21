@@ -1,6 +1,7 @@
 import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import { uuid, sparqlEscapeString, sparqlEscapeDateTime, sparqlEscapeUri } from 'mu';
 import { Writer } from 'n3';
+import { STATUS_BUSY, STATUS_NOT_STARTED, SUBMISSION_OPERATION, TASK_OPERATION_IMPORTING } from './constants';
 
 const BASIC_AUTH = 'https://www.w3.org/2019/wot/security#BasicSecurityScheme';
 const OAUTH2 = 'https://www.w3.org/2019/wot/security#OAuth2SecurityScheme';
@@ -30,6 +31,9 @@ const PREFIXES = `
   PREFIX dgftSec: <http://lblod.data.gift/vocabularies/security/>
   PREFIX dgftOauth: <http://kanselarij.vo.data.gift/vocabularies/oauth-2.0-session/>
   PREFIX wotSec: <https://www.w3.org/2019/wot/security#>
+  PREFIX cogs: <http://vocab.deri.ie/cogs#>
+  PREFIX task: <http://redpencil.data.gift/vocabularies/tasks/>
+  PREFIX hrvst: <http://lblod.data.gift/vocabularies/harvesting/>
 `;
 
 async function isSubmitted(resource) {
@@ -109,8 +113,9 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
            FILTER NOT EXISTS { ${sparqlEscapeUri(submittedResource)} mu:uuid ?uuid . }
         }
       }`);
-    const taskId = uuid();
-    const taskUri = `http://data.lblod.info/id/automatic-submission-task/${taskId}`;
+
+    const jobId = uuid();
+    const jobUri = `http://redpencil.data.gift/id/job/${jobId}`;
     const timestamp = new Date();
     const meldingUri = extractMeldingUri(triples);
 
@@ -118,16 +123,17 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
       ${PREFIXES}
       INSERT DATA {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
-           ${sparqlEscapeUri(taskUri)} a melding:AutomaticSubmissionTask;
-                                          mu:uuid ${sparqlEscapeString(taskId)};
-                                          dct:creator ${sparqlEscapeUri(CREATOR)};
-                                          adms:status <http://lblod.data.gift/automatische-melding-statuses/not-started>;
-                                          dct:created ${sparqlEscapeDateTime(timestamp)};
-                                          dct:modified ${sparqlEscapeDateTime(timestamp)};
-                                          prov:generated ${sparqlEscapeUri(meldingUri)}.
+          ${sparqlEscapeUri(jobUri)} a cogs:Job;
+                                      mu:uuid ${sparqlEscapeString(jobId)};
+                                      adms:status ${sparqlEscapeUri(STATUS_BUSY)};
+                                      dct:creator ${sparqlEscapeUri(CREATOR)};
+                                      dct:created ${sparqlEscapeDateTime(timestamp)};
+                                      dct:modified ${sparqlEscapeDateTime(timestamp)};
+                                      task:operation ${sparqlEscapeUri(SUBMISSION_OPERATION)};
         }
       }
-      `);
+    `);
+
     const remoteDataId = uuid();
     const remoteDataUri = `http://data.lblod.info/id/remote-data-objects/${remoteDataId}`;
     const locationUrl = extractLocationUrl(triples);
@@ -160,9 +166,57 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
                                                                             http:fieldName "Accept";
                                                                             http:hdrName <http://www.w3.org/2011/http-headers#accept>.
         }
+      }
+      `);
 
+    const collectionId = uuid();
+    const collectionUri = `http://redpencil.data.gift/id/harvestingCollection/${collectionId}`;
+
+    await update(`
+      ${PREFIXES}
+      INSERT DATA {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
-           ${sparqlEscapeUri(meldingUri)} nie:hasPart ${sparqlEscapeUri(remoteDataUri)}.
+            ${sparqlEscapeUri(collectionUri)} a hrvst:HarvestingCollection;
+                                          mu:uuid ${sparqlEscapeString(collectionId)};
+                                          dct:creator ${sparqlEscapeUri(CREATOR)};
+                                          dct:hasPart ${sparqlEscapeUri(remoteDataUri)}.
+        }
+      }
+    `);
+
+
+    const dataContainerId = uuid();
+    const dataContainerUri = `http://redpencil.data.gift/id/dataContainers/${dataContainerId}`;
+
+    await update(`
+      ${PREFIXES}
+      INSERT DATA {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+           ${sparqlEscapeUri(dataContainerUri)} a nfo:DataContainer;
+                                          mu:uuid ${sparqlEscapeString(dataContainerId)};
+                                          task:hasHarvestingCollection ${sparqlEscapeUri(collectionUri)}.
+        }
+      }
+    `);
+
+
+    const taskId = uuid();
+    const taskUri = `http://redpencil.data.gift/id/task/${taskId}`;
+    const index = '0';
+
+    await update(`
+      ${PREFIXES}
+      INSERT DATA {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+           ${sparqlEscapeUri(taskUri)} a task:Task;
+                                          mu:uuid ${sparqlEscapeString(taskId)};
+                                          dct:isPartOf ${sparqlEscapeUri(jobUri)};
+                                          adms:status ${sparqlEscapeUri(STATUS_NOT_STARTED)};
+                                          dct:created ${sparqlEscapeDateTime(timestamp)};
+                                          dct:modified ${sparqlEscapeDateTime(timestamp)};
+                                          task:operation ${sparqlEscapeUri(TASK_OPERATION_IMPORTING)};
+                                          task:index ${sparqlEscapeString(index)};
+                                          task:inputContainer ${sparqlEscapeUri(dataContainerUri)}.
         }
       }
       `);
