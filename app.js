@@ -20,7 +20,7 @@ app.post('/melding', async function (req, res, next) {
     } else {
       const body = req.body;
       console.log("Incoming request on /melding");
-      console.debug(body);
+      //console.debug(body);
 
       // enrich the body with minimum required json LD properties
       await enrichBody(body);

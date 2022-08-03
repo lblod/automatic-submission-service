@@ -1,6 +1,7 @@
 import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import { uuid, sparqlEscapeString, sparqlEscapeDateTime, sparqlEscapeUri } from 'mu';
 import { Writer } from 'n3';
+import { previousMap } from './helpers.js';
 
 const BASIC_AUTH = 'https://www.w3.org/2019/wot/security#BasicSecurityScheme';
 const OAUTH2 = 'https://www.w3.org/2019/wot/security#OAuth2SecurityScheme';
@@ -8,28 +9,33 @@ const OAUTH2 = 'https://www.w3.org/2019/wot/security#OAuth2SecurityScheme';
 const CREATOR = 'http://lblod.data.gift/services/automatic-submission-service';
 
 const PREFIXES = `
-  PREFIX meb:   <http://rdf.myexperiment.org/ontologies/base/>
-  PREFIX xsd: <http://www.w3.org/2001/XMLSchema#>
-  PREFIX pav:   <http://purl.org/pav/>
-  PREFIX dct:   <http://purl.org/dc/terms/>
-  PREFIX melding:   <http://lblod.data.gift/vocabularies/automatische-melding/>
-  PREFIX lblodBesluit:  <http://lblod.data.gift/vocabularies/besluit/>
-  PREFIX adms:  <http://www.w3.org/ns/adms#>
-  PREFIX muAccount:   <http://mu.semte.ch/vocabularies/account/>
-  PREFIX eli:   <http://data.europa.eu/eli/ontology#>
-  PREFIX org:   <http://www.w3.org/ns/org#>
-  PREFIX elod:  <http://linkedeconomy.org/ontology#>
-  PREFIX nie:   <http://www.semanticdesktop.org/ontologies/2007/01/19/nie#>
-  PREFIX prov:  <http://www.w3.org/ns/prov#>
-  PREFIX mu:   <http://mu.semte.ch/vocabularies/core/>
-  PREFIX foaf: <http://xmlns.com/foaf/0.1/>
-  PREFIX nfo:   <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#>
-  PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
-  PREFIX http: <http://www.w3.org/2011/http#>
-  PREFIX rpioHttp: <http://redpencil.data.gift/vocabularies/http/>
-  PREFIX dgftSec: <http://lblod.data.gift/vocabularies/security/>
-  PREFIX dgftOauth: <http://kanselarij.vo.data.gift/vocabularies/oauth-2.0-session/>
-  PREFIX wotSec: <https://www.w3.org/2019/wot/security#>
+  PREFIX meb:          <http://rdf.myexperiment.org/ontologies/base/>
+  PREFIX xsd:          <http://www.w3.org/2001/XMLSchema#>
+  PREFIX pav:          <http://purl.org/pav/>
+  PREFIX dct:          <http://purl.org/dc/terms/>
+  PREFIX melding:      <http://lblod.data.gift/vocabularies/automatische-melding/>
+  PREFIX lblodBesluit: <http://lblod.data.gift/vocabularies/besluit/>
+  PREFIX adms:         <http://www.w3.org/ns/adms#>
+  PREFIX muAccount:    <http://mu.semte.ch/vocabularies/account/>
+  PREFIX eli:          <http://data.europa.eu/eli/ontology#>
+  PREFIX org:          <http://www.w3.org/ns/org#>
+  PREFIX elod:         <http://linkedeconomy.org/ontology#>
+  PREFIX nie:          <http://www.semanticdesktop.org/ontologies/2007/01/19/nie#>
+  PREFIX prov:         <http://www.w3.org/ns/prov#>
+  PREFIX mu:           <http://mu.semte.ch/vocabularies/core/>
+  PREFIX foaf:         <http://xmlns.com/foaf/0.1/>
+  PREFIX nfo:          <http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#>
+  PREFIX ext:          <http://mu.semte.ch/vocabularies/ext/>
+  PREFIX http:         <http://www.w3.org/2011/http#>
+  PREFIX rpioHttp:     <http://redpencil.data.gift/vocabularies/http/>
+  PREFIX dgftSec:      <http://lblod.data.gift/vocabularies/security/>
+  PREFIX dgftOauth:    <http://kanselarij.vo.data.gift/vocabularies/oauth-2.0-session/>
+  PREFIX wotSec:       <https://www.w3.org/2019/wot/security#>
+  PREFIX cogs:         <http://vocab.deri.ie/cogs#>
+  PREFIX ass:          <http://lblod.data.gift/automatische-melding-statusses/>
+  PREFIX asj:          <http://data.lblod.info/id/automatic-submission-job/>
+  PREFIX services:     <http://lblod.data.gift/services/>
+  PREFIX job:          <http://lblod.data.gift/jobs/>
 `;
 
 async function isSubmitted(resource) {
@@ -84,9 +90,62 @@ async function triplesToTurtle(triples) {
   return promise;
 }
 
+async function startJobs(submissionGraph, meldingUri) {
+  const jobUuid = uuid();
+  const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
+  const servicesJobsData = [
+    { uuid: uuid(), name: 'automatic-submission-service', operation: 'cogs:TransformationProcess', status: 'cogs:Running', },
+    { uuid: uuid(), name: 'download-url-service',         operation: 'cogs:WebServiceLookup',      },
+    { uuid: uuid(), name: 'import-submission-service',    operation: 'cogs:FileLookup',            },
+    { uuid: uuid(), name: 'enrich-submission-service',    operation: 'cogs:Lookup',                },
+    { uuid: uuid(), name: 'validate-submission-service',  operation: 'cogs:AutomatedValidation',   },
+  ];
+  // Make a cogs:Job for the whole process
+  const jobQuery = `
+    ${PREFIXES}
+    INSERT DATA {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+        asj:${jobUuid}
+          a cogs:Job ;
+          mu:uuid ${sparqlEscapeString(jobUuid)} ;
+          dct:creator services:automatic-submission-service ;
+          adms:status cogs:Running ;
+          ass:status ass:automatic-submission-started ;
+          cogs:dependsOn ${servicesJobsData.map((data) => `asj:${data.uuid}`).join(' , ')} ;
+          dct:created ${nowSparql} ;
+          dct:modified ${nowSparql} ;
+          job:operation cogs:TransformationProcess ;
+          prov:generated ${sparqlEscapeUri(meldingUri)} .
+      }
+    }
+  `;
+  // Make a task for every step in the process, for every service involved
+  const subjobQueries = previousMap(servicesJobsData, (data, previous) => `
+    ${PREFIXES}
+    INSERT DATA {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+        asj:${data.uuid}
+          a cogs:Job ;
+          mu:uuid ${sparqlEscapeString(data.uuid)} ;
+          dct:creator services:${data.name} ;
+          dct:isPartOf asj:${jobUuid} ;
+          ${previous ? `cogs:precededBy asj:${previous.uuid} ;` : ''}
+          adms:status ${data.status || 'cogs:Pending'} ;
+          ${data.operation ? `job:operation ${data.operation} ;` : ''}
+          dct:created ${nowSparql} ;
+          dct:modified ${nowSparql} .
+      }
+    }
+  `);
+  await update(jobQuery);
+  return Promise.all(subjobQueries.map((query) => update(query))).then(() => jobUuid);
+}
+
 async function storeSubmission(triples, submissionGraph, fileGraph, authenticationConfiguration) {
   let newAuthConf = {};
   try {
+    const meldingUri = extractMeldingUri(triples);
+    const jobUri = await startJobs(submissionGraph, meldingUri);
     const submittedResource = findSubmittedResource(triples);
     const turtle = await triplesToTurtle(triples);
     await update(`
@@ -97,6 +156,7 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
            ${sparqlEscapeUri(submittedResource)} a foaf:Document, ext:SubmissionDocument .
         }
       }`);
+    //TODO: Is this following query really necessary? A submission always gets a uuid whith enrichBody so this query seems redundant.
     await update(`
       ${PREFIXES}
       INSERT {
@@ -109,25 +169,7 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
            FILTER NOT EXISTS { ${sparqlEscapeUri(submittedResource)} mu:uuid ?uuid . }
         }
       }`);
-    const taskId = uuid();
-    const taskUri = `http://data.lblod.info/id/automatic-submission-task/${taskId}`;
     const timestamp = new Date();
-    const meldingUri = extractMeldingUri(triples);
-
-    await update(`
-      ${PREFIXES}
-      INSERT DATA {
-        GRAPH ${sparqlEscapeUri(submissionGraph)} {
-           ${sparqlEscapeUri(taskUri)} a melding:AutomaticSubmissionTask;
-                                          mu:uuid ${sparqlEscapeString(taskId)};
-                                          dct:creator ${sparqlEscapeUri(CREATOR)};
-                                          adms:status <http://lblod.data.gift/automatische-melding-statuses/not-started>;
-                                          dct:created ${sparqlEscapeDateTime(timestamp)};
-                                          dct:modified ${sparqlEscapeDateTime(timestamp)};
-                                          prov:generated ${sparqlEscapeUri(meldingUri)}.
-        }
-      }
-      `);
     const remoteDataId = uuid();
     const remoteDataUri = `http://data.lblod.info/id/remote-data-objects/${remoteDataId}`;
     const locationUrl = extractLocationUrl(triples);
@@ -177,7 +219,7 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
         }
       }
     `);
-    return taskUri;
+    return jobUri;
   } catch (e) {
     console.error('Something went wrong during the storage of submission');
     console.error(e);
