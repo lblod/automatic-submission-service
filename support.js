@@ -205,7 +205,7 @@ async function automaticSubmissionTaskSuccess(submissionGraph, automaticSubmissi
   return downloadTaskUri;
 }
 
-async function automaticSubmissionTaskFail(submissionGraph, automaticSubmissionTaskUri) {
+async function automaticSubmissionTaskFail(submissionGraph, automaticSubmissionTaskUri, jobUri) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const automaticSubmissionTaskUriSparql = sparqlEscapeUri(automaticSubmissionTaskUri);
   const assTaskQuery = `
@@ -233,6 +233,34 @@ async function automaticSubmissionTaskFail(submissionGraph, automaticSubmissionT
     }
   `;
   await update(assTaskQuery);
+
+  //Also set the job to failure
+  const jobUriSparql = sparqlEscapeUri(jobUri);
+  const assJobQuery = `
+    ${PREFIXES}
+    DELETE {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+        ${jobUriSparql}
+          adms:status ?oldStatus ;
+          dct:modified ?oldModified .
+      }
+    }
+    INSERT {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+        ${jobUriSparql}
+          adms:status js:failed ;
+          dct:modified ${nowSparql} .
+      }
+    }
+    WHERE {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+        ${jobUriSparql}
+          adms:status ?oldStatus ;
+          dct:modified ?oldModified .
+      }
+    }
+  `;
+  await update(assJobQuery);
 }
 
 async function downloadSuccess(submissionGraph, downloadTaskUri) {
@@ -271,7 +299,7 @@ async function downloadSuccess(submissionGraph, downloadTaskUri) {
   await update(downloadTaskQuery);
 }
 
-async function downloadFail(submissionGraph, downloadTaskUri) {
+async function downloadFail(submissionGraph, downloadTaskUri, jobUri) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
   const downloadTaskQuery = `
@@ -299,6 +327,34 @@ async function downloadFail(submissionGraph, downloadTaskUri) {
     }
   `;
   await update(downloadTaskQuery);
+
+  //Also set the job to failure
+  const jobUriSparql = sparqlEscapeUri(jobUri);
+  const assJobQuery = `
+    ${PREFIXES}
+    DELETE {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+        ${jobUriSparql}
+          adms:status ?oldStatus ;
+          dct:modified ?oldModified .
+      }
+    }
+    INSERT {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+        ${jobUriSparql}
+          adms:status js:failed ;
+          dct:modified ${nowSparql} .
+      }
+    }
+    WHERE {
+      GRAPH ${sparqlEscapeUri(submissionGraph)} {
+        ${jobUriSparql}
+          adms:status ?oldStatus ;
+          dct:modified ?oldModified .
+      }
+    }
+  `;
+  await update(assJobQuery);
 }
 
 async function storeSubmission(triples, submissionGraph, fileGraph, authenticationConfiguration) {
@@ -387,7 +443,7 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
     console.error('Something went wrong during the storage of submission');
     console.error(e);
     console.info('Cleaning credentials');
-    await automaticSubmissionTaskFail(submissionGraph, automaticSubmissionTaskUri);
+    await automaticSubmissionTaskFail(submissionGraph, automaticSubmissionTaskUri, jobUri);
     await cleanCredentials(authenticationConfiguration);
     if (newAuthConf.newAuthConf) {
       await cleanCredentials(newAuthConf.newAuthConf);
