@@ -3,7 +3,9 @@ import { verifyKeyAndOrganisation, storeSubmission, isSubmitted, sendErrorAlert,
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
 import {enrichBody, extractInfoFromTriples, validateExtractedInfo} from "./jsonld-input";
+import { remoteDataObjectStatusChange } from './downloadTaskManagement.js';
 import * as env from './env.js';
+import { getTaskInfoFromRemoteDataObject, downloadTaskUpdate } from './downloadTaskManagement.js';
 
 app.use(errorHandler);
 // support both jsonld and json content-type
@@ -104,3 +106,38 @@ app.post('/melding', async function (req, res, next) {
     }).end();
   }
 });
+
+app.post('/download-status-update', async function (req, res) {
+  //The locking is needed because the delta-notifier sends the same request twice to this API because a status update is both deleted and inserted. We don't want this; we can't change that for now, so we block such that no 2 requests are handled at the same time and then limit the way status changes can be performed.
+  try {
+    //Because the delta-notifier is lazy/incompetent we need a lot more filtering before we actually know that a resource's status has been set to ongoing
+    const actualStatusChange = req.body
+      .map((changeset) => changeset.inserts)
+      .filter((inserts) => inserts.length > 0)
+      .flat()
+      .filter((insert) => /http:\/\/data.lblod.info\/id\/remote-data-objects\//.test(insert.subject.value))
+      .filter((insert) => insert.predicate.value === env.ADMS_STATUS_PREDICATE)
+      .filter((insert) => insert.object.value === env.DOWNLOAD_STATUSES.ongoing ||
+                          insert.object.value === env.DOWNLOAD_STATUSES.success ||
+                          insert.object.value === env.DOWNLOAD_STATUSES.failure);
+    for (const remoteDataObjectTriple of actualStatusChange) {
+      const { downloadTaskUri, jobUri, oldStatus, submissionGraph } = await getTaskInfoFromRemoteDataObject(remoteDataObjectTriple.subject.value);
+      //Update the status also passing the old status to not make any illegal updates
+      await downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldStatus, remoteDataObjectTriple.object.value);
+    }
+  }
+  catch (e) {
+    console.error(e.message);
+    sendErrorAlert({
+      message: 'Could not process a download status update' ,
+      detail: JSON.stringify({ error: e.message, }),
+    });
+    res.status(500).json({
+      errors: [{
+        title: "An error occured while updating the staus of a downloaded file",
+        error: JSON.stringify(e),
+      }]
+    });
+  }
+});
+
