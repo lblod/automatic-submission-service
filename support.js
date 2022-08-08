@@ -309,6 +309,7 @@ async function sendErrorAlert({message, detail, reference}) {
       PREFIX mu:   <http://mu.semte.ch/vocabularies/core/>
       PREFIX oslc: <http://open-services.net/ns/core#>      
       PREFIX dct:  <http://purl.org/dc/terms/>
+      PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
       
       INSERT DATA {
         GRAPH <http://mu.semte.ch/graphs/error> {
