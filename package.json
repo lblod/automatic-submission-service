@@ -6,7 +6,8 @@
     "@lblod/mu-auth-sudo": "^0.2.0",
     "jsonld": "^1.7.0",
     "n3": "^1.2.0",
-    "lodash": "^4.17.15"
+    "lodash": "^4.17.15",
+    "async-await-mutex-lock": "^1.0.9"
   },
   "devDependencies": {},
   "scripts": {

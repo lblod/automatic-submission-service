@@ -6,6 +6,7 @@ import {enrichBody, extractInfoFromTriples, validateExtractedInfo} from "./jsonl
 import { remoteDataObjectStatusChange } from './downloadTaskManagement.js';
 import * as env from './env.js';
 import { getTaskInfoFromRemoteDataObject, downloadTaskUpdate } from './downloadTaskManagement.js';
+import { Lock } from 'async-await-mutex-lock';
 
 app.use(errorHandler);
 // support both jsonld and json content-type
@@ -108,8 +109,11 @@ app.post('/melding', async function (req, res, next) {
   }
 });
 
+const lock = new Lock();
+
 app.post('/download-status-update', async function (req, res) {
   //The locking is needed because the delta-notifier sends the same request twice to this API because a status update is both deleted and inserted. We don't want this; we can't change that for now, so we block such that no 2 requests are handled at the same time and then limit the way status changes can be performed.
+  await lock.acquire();
   try {
     //Because the delta-notifier is lazy/incompetent we need a lot more filtering before we actually know that a resource's status has been set to ongoing
     const actualStatusChange = req.body
@@ -139,6 +143,9 @@ app.post('/download-status-update', async function (req, res) {
         error: JSON.stringify(e),
       }]
     });
+  }
+  finally {
+    lock.release();
   }
 });
 
