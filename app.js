@@ -3,6 +3,7 @@ import { verifyKeyAndOrganisation, storeSubmission, isSubmitted, sendErrorAlert,
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
 import {enrichBody, extractInfoFromTriples, validateExtractedInfo} from "./jsonld-input";
+import * as env from './env.js';
 
 app.use(errorHandler);
 // support both jsonld and json content-type
