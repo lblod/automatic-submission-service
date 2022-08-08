@@ -90,8 +90,9 @@ app.post('/melding', async function (req, res, next) {
       res.status(201).send({uri}).end();
     }
   } catch (e) {
+    console.error(e.message);
     const detail = JSON.stringify( {
-      err: e,
+      err: e.message,
       req: cleanseRequestBody(req.body)
     }, undefined, 2);
     sendErrorAlert({
