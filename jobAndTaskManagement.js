@@ -60,12 +60,13 @@ export async function startJob(submissionGraph, meldingUri) {
   }
 }
 
-export async function automaticSubmissionTaskSuccess(submissionGraph, automaticSubmissionTaskUri, jobUri) {
+export async function automaticSubmissionTaskSuccess(submissionGraph, automaticSubmissionTaskUri, jobUri, remoteDataObjectUri) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const automaticSubmissionTaskUriSparql = sparqlEscapeUri(automaticSubmissionTaskUri);
   const resultContainerUuid = uuid();
+  const harvestingCollectionUuid = uuid();
   const assTaskQuery = `
-    ${env.getPrefixes(["xsd", "asj", "mu", "dct", "task", "adms", "js", "nfo"])}
+    ${env.getPrefixes(["xsd", "asj", "mu", "dct", "task", "adms", "js", "services", "nfo", "hrvst"])}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${automaticSubmissionTaskUriSparql}
@@ -82,7 +83,13 @@ export async function automaticSubmissionTaskSuccess(submissionGraph, automaticS
 
         asj:${resultContainerUuid}
           a nfo:DataContainer ;
-          mu:uuid ${sparqlEscapeString(resultContainerUuid)} .
+          mu:uuid ${sparqlEscapeString(resultContainerUuid)} ;
+          task:hasHarvestingCollection asj:${harvestingCollectionUuid} .
+
+        asj:${harvestingCollectionUuid}
+          a hrvst:HarvestingCollection ;
+          dct:creator services:automatic-submission-service ;
+          dct:hasPart ${sparqlEscapeUri(remoteDataObjectUri)} .
       }
     }
     WHERE {
@@ -95,7 +102,7 @@ export async function automaticSubmissionTaskSuccess(submissionGraph, automaticS
   `;
   await update(assTaskQuery);
 
-  return downloadTaskCreate(submissionGraph, jobUri);
+  return downloadTaskCreate(submissionGraph, jobUri, remoteDataObjectUri);
 }
 
 export async function automaticSubmissionTaskFail(submissionGraph, automaticSubmissionTaskUri, jobUri) {

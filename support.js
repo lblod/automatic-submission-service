@@ -135,7 +135,7 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
       }
     `);
 
-    await jobsAndTasks.automaticSubmissionTaskSuccess(submissionGraph, automaticSubmissionTaskUri, jobUri);
+    await jobsAndTasks.automaticSubmissionTaskSuccess(submissionGraph, automaticSubmissionTaskUri, jobUri, remoteDataUri);
 
     return jobUri;
   } catch (e) {

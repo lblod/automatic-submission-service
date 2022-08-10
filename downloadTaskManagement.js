@@ -3,17 +3,19 @@ import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import { uuid, sparqlEscapeString, sparqlEscapeDateTime, sparqlEscapeUri } from 'mu';
 
 export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
+  const remoteDataObjectUriSparql = sparqlEscapeUri(remoteDataObjectUri);
   //TODO this query is rather fragile, relying on the links between melding, job and task via non-documented properties, made by the download-url-service
   const taskQuery = `
-    ${env.getPrefixes(['nie', 'prov', 'dct', 'task', 'adms', 'cogs'])}
-    SELECT ?task ?job ?oldStatus ?submissionGraph WHERE {
-        ?melding nie:hasPart ${sparqlEscapeUri(remoteDataObjectUri)} .
+    ${env.getPrefixes(['nie', 'prov', 'dct', 'task', 'adms', 'tasko'])}
+    SELECT ?task ?job ?oldStatus ?submissionGraph ?fileUri WHERE {
+      ?melding nie:hasPart ${remoteDataObjectUriSparql} .
       GRAPH ?submissionGraph {
         ?job prov:generated ?melding .
         ?task dct:isPartOf ?job ;
               task:operation cogs:WebServiceLookup ;
               adms:status ?oldStatus .
       }
+      OPTIONAL { ?fileUri nie:dataSource ${remoteDataObjectUriSparql} . }
     }
   `;
   const response = await query(taskQuery);
@@ -26,10 +28,11 @@ export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
     jobUri: results.job.value,
     oldStatus: results.oldStatus.value,
     submissionGraph: results.submissionGraph.value,
+    fileUri: results.fileUri?.value,
   };
 }
 
-export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldASSStatus, newDLStatus) {
+export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldASSStatus, newDLStatus, logicalFileUri) {
   switch (newDLStatus) {
     case env.DOWNLOAD_STATUSES.ongoing:
       if (oldASSStatus === env.TASK_STATUSES.scheduled)
@@ -37,7 +40,7 @@ export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUr
       break;
     case env.DOWNLOAD_STATUSES.success:
       if (oldASSStatus === env.TASK_STATUSES.scheduled || oldASSStatus === env.TASK_STATUSES.busy)
-        return downloadSuccess(submissionGraph, downloadTaskUri);
+        return downloadSuccess(submissionGraph, downloadTaskUri, logicalFileUri);
       break;
     case env.DOWNLOAD_STATUSES.failure:
       if (oldASSStatus === env.TASK_STATUSES.busy || oldASSStatus === scheduled)
@@ -47,10 +50,11 @@ export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUr
   throw new Error(`Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`);
 }
 
-export async function downloadTaskCreate(submissionGraph, jobUri) {
+export async function downloadTaskCreate(submissionGraph, jobUri, remoteDataObjectUri) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const downloadTaskUuid = uuid();
   const inputContainerUuid = uuid();
+  const harvestingCollectionUuid = uuid();
   const downloadTaskQuery = `
     ${env.PREFIXES}
     INSERT DATA {
@@ -69,7 +73,13 @@ export async function downloadTaskCreate(submissionGraph, jobUri) {
 
         asj:j${inputContainerUuid}
           a nfo:DataContainer ;
-          mu:uuid ${sparqlEscapeString(inputContainerUuid)} .
+          mu:uuid ${sparqlEscapeString(inputContainerUuid)} ;
+          task:hasHarvestingCollection asj:${harvestingCollectionUuid} .
+
+        asj:${harvestingCollectionUuid}
+          a hrvst:HarvestingCollection ;
+          dct:creator services:automatic-submission-service ;
+          dct:hasPart ${sparqlEscapeUri(remoteDataObjectUri)} .
       }
     }
   `;
@@ -109,7 +119,7 @@ export async function downloadStarted(submissionGraph, downloadTaskUri) {
   await update(downloadTaskQuery);
 }
 
-export async function downloadSuccess(submissionGraph, downloadTaskUri) {
+export async function downloadSuccess(submissionGraph, downloadTaskUri, logicalFileUri) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const resultContainerUuid = uuid();
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
@@ -131,7 +141,8 @@ export async function downloadSuccess(submissionGraph, downloadTaskUri) {
 
         asj:${resultContainerUuid}
           a nfo:DataContainer ;
-          mu:uuid ${sparqlEscapeString(resultContainerUuid)} .
+          mu:uuid ${sparqlEscapeString(resultContainerUuid)} ;
+          task:hasFile ${sparqlEscapeUri(logicalFileUri)} .
       }
     }
     WHERE {

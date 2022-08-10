@@ -52,6 +52,9 @@ export const PREFIX_TABLE = {
   job:          'http://lblod.data.gift/jobs/',
   task:         'http://redpencil.data.gift/vocabularies/tasks/',
   js:           'http://redpencil.data.gift/id/concept/JobStatus/',
+  tasko:        'http://lblod.data.gift/id/jobs/concept/TaskOperation/',
+  jobo:         'http://lblod.data.gift/id/jobs/concept/JobOperation/',
+  hrvst:        'http://lblod.data.gift/vocabularies/harvesting/',
 }
 export const PREFIXES = (() => {
   const all = [];
