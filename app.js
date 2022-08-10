@@ -130,6 +130,7 @@ app.post('/download-status-update', async function (req, res) {
       //Update the status also passing the old status to not make any illegal updates
       await downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldStatus, remoteDataObjectTriple.object.value, fileUri);
     }
+    res.status(200).send().end();
   }
   catch (e) {
     console.error(e.message);

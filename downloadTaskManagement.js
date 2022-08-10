@@ -12,7 +12,7 @@ export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
       GRAPH ?submissionGraph {
         ?job prov:generated ?melding .
         ?task dct:isPartOf ?job ;
-              task:operation cogs:WebServiceLookup ;
+              task:operation tasko:download ;
               adms:status ?oldStatus .
       }
       OPTIONAL { ?fileUri nie:dataSource ${remoteDataObjectUriSparql} . }
@@ -65,7 +65,8 @@ export async function downloadTaskCreate(submissionGraph, jobUri, remoteDataObje
           adms:status js:scheduled ;
           dct:created ${nowSparql} ;
           dct:modified ${nowSparql} ;
-          task:operation cogs:WebServiceLookup ;
+          task:cogsOperation cogs:WebServiceLookup ;
+          task:operation tasko:download ;
           dct:creator services:automatic-submission-service ;
           task:index "1" ;
           dct:isPartOf ${sparqlEscapeUri(jobUri)} ;
