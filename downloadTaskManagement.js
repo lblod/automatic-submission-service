@@ -56,7 +56,7 @@ export async function downloadTaskCreate(submissionGraph, jobUri, remoteDataObje
   const inputContainerUuid = uuid();
   const harvestingCollectionUuid = uuid();
   const downloadTaskQuery = `
-    ${env.PREFIXES}
+    ${env.getPrefixes(['xsd', 'rdf', 'asj', 'mu', 'adms', 'js', 'dct', 'nfo', 'task', 'cogs', 'services', 'tasko', 'hrvst'])}
     INSERT DATA {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         asj:${downloadTaskUuid}
@@ -94,7 +94,7 @@ export async function downloadStarted(submissionGraph, downloadTaskUri) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
   const downloadTaskQuery = `
-    ${env.PREFIXES}
+    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js'])}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${downloadTaskUriSparql}
@@ -125,7 +125,7 @@ export async function downloadSuccess(submissionGraph, downloadTaskUri, logicalF
   const resultContainerUuid = uuid();
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
   const downloadTaskQuery = `
-    ${env.PREFIXES}
+    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js', 'asj', 'mu', 'task', 'nfo'])}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${downloadTaskUriSparql}
@@ -161,7 +161,7 @@ export async function downloadFail(submissionGraph, downloadTaskUri, jobUri) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
   const downloadTaskQuery = `
-    ${env.PREFIXES}
+    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js'])}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${downloadTaskUriSparql}
@@ -189,7 +189,7 @@ export async function downloadFail(submissionGraph, downloadTaskUri, jobUri) {
   //Also set the job to failure
   const jobUriSparql = sparqlEscapeUri(jobUri);
   const assJobQuery = `
-    ${env.PREFIXES}
+    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js'])}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${jobUriSparql}
