@@ -104,9 +104,10 @@ export async function automaticSubmissionTaskSuccess(submissionGraph, automaticS
   return downloadTaskCreate(submissionGraph, jobUri, remoteDataObjectUri);
 }
 
-export async function automaticSubmissionTaskFail(submissionGraph, automaticSubmissionTaskUri, jobUri) {
+export async function automaticSubmissionTaskFail(submissionGraph, automaticSubmissionTaskUri, jobUri, errorUri) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const automaticSubmissionTaskUriSparql = sparqlEscapeUri(automaticSubmissionTaskUri);
+  const errorUriSparql = sparqlEscapeUri(errorUri);
   const assTaskQuery = `
     ${env.getPrefixes(["xsd", "asj", "mu", "dct", "task", "adms", "js", "nfo"])}
     DELETE {
@@ -120,7 +121,8 @@ export async function automaticSubmissionTaskFail(submissionGraph, automaticSubm
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${automaticSubmissionTaskUriSparql}
           adms:status js:failed ;
-          dct:modified ${nowSparql} .
+          dct:modified ${nowSparql} ;
+          task:error ${errorUriSparql} .
       }
     }
     WHERE {
@@ -148,7 +150,8 @@ export async function automaticSubmissionTaskFail(submissionGraph, automaticSubm
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${jobUriSparql}
           adms:status js:failed ;
-          dct:modified ${nowSparql} .
+          dct:modified ${nowSparql} ;
+          task:error ${errorUriSparql} .
       }
     }
     WHERE {

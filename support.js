@@ -139,12 +139,18 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
 
     return jobUri;
   } catch (e) {
-    console.error('Something went wrong during the storage of submission');
-    console.error(e);
+    console.error(`Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${automaticSubmissionTaskUri}.`);
+    console.error(e.message);
     console.info('Cleaning credentials');
-    await jobsAndTasks.automaticSubmissionTaskFail(submissionGraph, automaticSubmissionTaskUri, jobUri);
-    await cleanCredentials(authenticationConfiguration);
-    if (newAuthConf.newAuthConf) {
+    const errorUri = await sendErrorAlert({
+      message: `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${automaticSubmissionTaskUri}.`,
+      detail: e.message,
+    });
+    await jobsAndTasks.automaticSubmissionTaskFail(submissionGraph, automaticSubmissionTaskUri, jobUri, errorUri);
+    e.alreadyStoredError = true;
+    if (authenticationConfiguration)
+      await cleanCredentials(authenticationConfiguration);
+    if (newAuthConf?.newAuthConf) {
       await cleanCredentials(newAuthConf.newAuthConf);
     }
     throw e;
@@ -326,6 +332,7 @@ async function sendErrorAlert({message, detail, reference}) {
    `;
   try {
     await update(q);
+    return uri;
   } catch (e) {
     console.warn(`[WARN] Something went wrong while trying to store an error.\nMessage: ${e}\nQuery: ${q}`);
   }

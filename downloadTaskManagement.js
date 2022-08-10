@@ -6,8 +6,8 @@ export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
   const remoteDataObjectUriSparql = sparqlEscapeUri(remoteDataObjectUri);
   //TODO this query is rather fragile, relying on the links between melding, job and task via non-documented properties, made by the download-url-service
   const taskQuery = `
-    ${env.getPrefixes(['nie', 'prov', 'dct', 'task', 'adms', 'tasko'])}
-    SELECT ?task ?job ?oldStatus ?submissionGraph ?fileUri WHERE {
+    ${env.getPrefixes(['nie', 'prov', 'dct', 'task', 'adms', 'tasko', 'ext'])}
+    SELECT ?task ?job ?oldStatus ?submissionGraph ?fileUri ?errorMsg WHERE {
       ?melding nie:hasPart ${remoteDataObjectUriSparql} .
       GRAPH ?submissionGraph {
         ?job prov:generated ?melding .
@@ -16,7 +16,9 @@ export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
               adms:status ?oldStatus .
       }
       OPTIONAL { ?fileUri nie:dataSource ${remoteDataObjectUriSparql} . }
+      OPTIONAL { ${remoteDataObjectUriSparql} ext:cacheError ?errorMsg . }
     }
+    LIMIT 1
   `;
   const response = await query(taskQuery);
   let results = response.results.bindings;
@@ -29,10 +31,11 @@ export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
     oldStatus: results.oldStatus.value,
     submissionGraph: results.submissionGraph.value,
     fileUri: results.fileUri?.value,
+    errorMsg: results.errorMsg?.value,
   };
 }
 
-export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldASSStatus, newDLStatus, logicalFileUri) {
+export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldASSStatus, newDLStatus, logicalFileUri, errorMsg) {
   switch (newDLStatus) {
     case env.DOWNLOAD_STATUSES.ongoing:
       if (oldASSStatus === env.TASK_STATUSES.scheduled)
@@ -43,8 +46,8 @@ export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUr
         return downloadSuccess(submissionGraph, downloadTaskUri, logicalFileUri);
       break;
     case env.DOWNLOAD_STATUSES.failure:
-      if (oldASSStatus === env.TASK_STATUSES.busy || oldASSStatus === scheduled)
-        return downloadFail(submissionGraph, downloadTaskUri, jobUri);
+      if (oldASSStatus === env.TASK_STATUSES.busy || oldASSStatus === env.TASK_STATUSES.scheduled)
+        return downloadFail(submissionGraph, downloadTaskUri, jobUri, logicalFileUri, errorMsg);
       break;
   }
   throw new Error(`Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`);
@@ -157,11 +160,13 @@ export async function downloadSuccess(submissionGraph, downloadTaskUri, logicalF
   await update(downloadTaskQuery);
 }
 
-export async function downloadFail(submissionGraph, downloadTaskUri, jobUri) {
+export async function downloadFail(submissionGraph, downloadTaskUri, jobUri, logicalFileUri, errorMsg) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
+  const resultContainerUuid = uuid();
+  const errorUuid = uuid();
   const downloadTaskQuery = `
-    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js'])}
+    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js',  'asj', 'oslc', 'nfo', 'mu', 'task'])}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${downloadTaskUriSparql}
@@ -173,7 +178,20 @@ export async function downloadFail(submissionGraph, downloadTaskUri, jobUri) {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${downloadTaskUriSparql}
           adms:status js:failed ;
+          ${errorMsg ? `task:error asj:${errorUuid} ;` : ''}
+          ${logicalFileUri ? `task:resultsContainer asj:${resultContainerUuid} ;` : ''}
           dct:modified ${nowSparql} .
+
+        ${logicalFileUri ? `
+          asj:${resultContainerUuid}
+            a nfo:DataContainer ;
+            mu:uuid ${sparqlEscapeString(resultContainerUuid)} ;
+            task:hasFile ${sparqlEscapeUri(logicalFileUri)} .` : ''}
+
+        ${errorMsg ? `
+          asj:${errorUuid}
+            a oslc:Error ;
+            oslc:message ${sparqlEscapeString(errorMsg)} .` : ''}
       }
     }
     WHERE {
@@ -189,7 +207,7 @@ export async function downloadFail(submissionGraph, downloadTaskUri, jobUri) {
   //Also set the job to failure
   const jobUriSparql = sparqlEscapeUri(jobUri);
   const assJobQuery = `
-    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js'])}
+    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js', 'asj', 'task'])}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${jobUriSparql}
@@ -201,7 +219,8 @@ export async function downloadFail(submissionGraph, downloadTaskUri, jobUri) {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${jobUriSparql}
           adms:status js:failed ;
-          dct:modified ${nowSparql} .
+          ${errorMsg ? `task:error asj:${errorUuid} ;` : ''}
+          dct:modified ${nowSparql} ;
       }
     }
     WHERE {

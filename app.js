@@ -92,14 +92,16 @@ app.post('/melding', async function (req, res, next) {
     }
   } catch (e) {
     console.error(e.message);
-    const detail = JSON.stringify( {
-      err: e.message,
-      req: cleanseRequestBody(req.body)
-    }, undefined, 2);
-    sendErrorAlert({
-      message: 'Something unexpected went wrong while processing an auto-submission request.',
-      detail,
-    });
+    if (!e.alreadyStoredError) {
+      const detail = JSON.stringify( {
+        err: e.message,
+        req: cleanseRequestBody(req.body)
+      }, undefined, 2);
+      sendErrorAlert({
+        message: 'Something unexpected went wrong while processing an auto-submission request.',
+        detail,
+      });
+    }
     res.status(400).send({
       errors: [{
         title: 'Something unexpected happened while processing the auto-submission request. ' +
@@ -126,18 +128,19 @@ app.post('/download-status-update', async function (req, res) {
                           insert.object.value === env.DOWNLOAD_STATUSES.success ||
                           insert.object.value === env.DOWNLOAD_STATUSES.failure);
     for (const remoteDataObjectTriple of actualStatusChange) {
-      const { downloadTaskUri, jobUri, oldStatus, submissionGraph, fileUri } = await getTaskInfoFromRemoteDataObject(remoteDataObjectTriple.subject.value);
+      const { downloadTaskUri, jobUri, oldStatus, submissionGraph, fileUri, errorMsg } = await getTaskInfoFromRemoteDataObject(remoteDataObjectTriple.subject.value);
       //Update the status also passing the old status to not make any illegal updates
-      await downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldStatus, remoteDataObjectTriple.object.value, fileUri);
+      await downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldStatus, remoteDataObjectTriple.object.value, fileUri, errorMsg);
     }
     res.status(200).send().end();
   }
   catch (e) {
     console.error(e.message);
-    sendErrorAlert({
-      message: 'Could not process a download status update' ,
-      detail: JSON.stringify({ error: e.message, }),
-    });
+    if (!e.alreadyStoredError)
+      sendErrorAlert({
+        message: 'Could not process a download status update' ,
+        detail: JSON.stringify({ error: e.message, }),
+      });
     res.status(500).json({
       errors: [{
         title: "An error occured while updating the staus of a downloaded file",
