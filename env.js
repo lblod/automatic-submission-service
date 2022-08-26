@@ -40,6 +40,7 @@ export const PREFIX_TABLE = {
   mu:           'http://mu.semte.ch/vocabularies/core/',
   foaf:         'http://xmlns.com/foaf/0.1/',
   nfo:          'http://www.semanticdesktop.org/ontologies/2007/03/22/nfo#',
+  dbpedia:      'http://dbpedia.org/ontology/',
   ext:          'http://mu.semte.ch/vocabularies/ext/',
   http:         'http://www.w3.org/2011/http#',
   rpioHttp:     'http://redpencil.data.gift/vocabularies/http/',

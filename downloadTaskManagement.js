@@ -35,15 +35,17 @@ export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
   };
 }
 
-export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldASSStatus, newDLStatus, logicalFileUri, errorMsg) {
+export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldASSStatus, newDLStatus, logicalFileUri, physicalFileUri, errorMsg) {
   switch (newDLStatus) {
     case env.DOWNLOAD_STATUSES.ongoing:
       if (oldASSStatus === env.TASK_STATUSES.scheduled)
         return downloadStarted(submissionGraph, downloadTaskUri);
       break;
     case env.DOWNLOAD_STATUSES.success:
-      if (oldASSStatus === env.TASK_STATUSES.scheduled || oldASSStatus === env.TASK_STATUSES.busy)
+      if (oldASSStatus === env.TASK_STATUSES.scheduled || oldASSStatus === env.TASK_STATUSES.busy) {
+        await complementLogicalFileMetaData(submissionGraph, physicalFileUri, logicalFileUri);
         return downloadSuccess(submissionGraph, downloadTaskUri, logicalFileUri);
+      }
       break;
     case env.DOWNLOAD_STATUSES.failure:
       if (oldASSStatus === env.TASK_STATUSES.busy || oldASSStatus === env.TASK_STATUSES.scheduled)
@@ -51,6 +53,39 @@ export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUr
       break;
   }
   throw new Error(`Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`);
+}
+
+//TODO in the future: maybe remove if better implemented in download-url-service
+//The download-url-service is not very good at putting the metadata of a file in the correct place.
+//The physical file gets al the metadata and the logical file (which is a remote data object) does not get additional file related metadata.
+//We can just copy the metadata from the physical file to the logical file.
+async function complementLogicalFileMetaData(submissionGraph, physicalFileUri, logicalFileUri) {
+  const submissionGraphSparql = sparqlEscapeUri(submissionGraph);
+  return update(`
+    ${env.getPrefixes(['nfo', 'dct', 'dbpedia'])}
+    INSERT {
+      GRAPH ${submissionGraphSparql} {
+        ${sparqlEscapeUri(logicalFileUri)}
+          a nfo:FileDataObject ;
+          nfo:fileName ?filename ;
+          dct:format ?format ;
+          nfo:fileSize ?fileSize ;
+          dbpedia:fileExtension ?fileExtension ;
+          dct:created ?created .
+      }
+    }
+    WHERE {
+      GRAPH ${submissionGraphSparql} {
+        ${sparqlEscapeUri(physicalFileUri)}
+          a nfo:FileDataObject ;
+          nfo:fileName ?filename ;
+          dct:format ?format ;
+          nfo:fileSize ?fileSize ;
+          dbpedia:fileExtension ?fileExtension ;
+          dct:created ?created .
+      }
+    }
+  `);
 }
 
 export async function downloadTaskCreate(submissionGraph, jobUri, remoteDataObjectUri) {
@@ -93,7 +128,7 @@ export async function downloadTaskCreate(submissionGraph, jobUri, remoteDataObje
   return downloadTaskUri;
 }
 
-export async function downloadStarted(submissionGraph, downloadTaskUri) {
+async function downloadStarted(submissionGraph, downloadTaskUri) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
   const downloadTaskQuery = `
@@ -123,7 +158,7 @@ export async function downloadStarted(submissionGraph, downloadTaskUri) {
   await update(downloadTaskQuery);
 }
 
-export async function downloadSuccess(submissionGraph, downloadTaskUri, logicalFileUri) {
+async function downloadSuccess(submissionGraph, downloadTaskUri, logicalFileUri) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const resultContainerUuid = uuid();
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
@@ -160,7 +195,7 @@ export async function downloadSuccess(submissionGraph, downloadTaskUri, logicalF
   await update(downloadTaskQuery);
 }
 
-export async function downloadFail(submissionGraph, downloadTaskUri, jobUri, logicalFileUri, errorMsg) {
+async function downloadFail(submissionGraph, downloadTaskUri, jobUri, logicalFileUri, errorMsg) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
   const resultContainerUuid = uuid();
