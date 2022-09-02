@@ -122,7 +122,6 @@ app.post('/download-status-update', async function (req, res) {
       .map((changeset) => changeset.inserts)
       .filter((inserts) => inserts.length > 0)
       .flat()
-      .filter((insert) => /http:\/\/data.lblod.info\/id\/remote-data-objects\//.test(insert.subject.value))
       .filter((insert) => insert.predicate.value === env.ADMS_STATUS_PREDICATE)
       .filter((insert) => insert.object.value === env.DOWNLOAD_STATUSES.ongoing ||
                           insert.object.value === env.DOWNLOAD_STATUSES.success ||
