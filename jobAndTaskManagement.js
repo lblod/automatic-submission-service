@@ -10,7 +10,7 @@ export async function startJob(submissionGraph, meldingUri) {
     // Make a cogs:Job for the whole process
     // The prov:generated is strictly not necessary for the model, maybe nice to have
     const jobQuery = `
-      ${env.getPrefixes(["xsd", "asj", "cogs", "mu", "dct", "task", "prov", "adms", "js", "services", "tasko", "jobo"])}
+      ${env.PREFIXES}
       INSERT DATA {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
           asj:${jobUuid}
@@ -31,7 +31,7 @@ export async function startJob(submissionGraph, meldingUri) {
     // Create a task for the automatic submission as the first step in the flow
     const submissionTaskUuid = uuid();
     const submissionTaskQuery = `
-      ${env.getPrefixes(["xsd", "asj", "cogs", "mu", "dct", "task", "prov", "adms", "js", "services", "tasko"])}
+      ${env.PREFIXES}
       INSERT DATA {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
           asj:${submissionTaskUuid}
@@ -65,7 +65,7 @@ export async function automaticSubmissionTaskSuccess(submissionGraph, automaticS
   const resultContainerUuid = uuid();
   const harvestingCollectionUuid = uuid();
   const assTaskQuery = `
-    ${env.getPrefixes(["xsd", "asj", "mu", "dct", "task", "adms", "js", "services", "nfo", "hrvst"])}
+    ${env.PREFIXES}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${automaticSubmissionTaskUriSparql}
@@ -109,7 +109,7 @@ export async function automaticSubmissionTaskFail(submissionGraph, automaticSubm
   const automaticSubmissionTaskUriSparql = sparqlEscapeUri(automaticSubmissionTaskUri);
   const errorUriSparql = sparqlEscapeUri(errorUri);
   const assTaskQuery = `
-    ${env.getPrefixes(["xsd", "asj", "mu", "dct", "task", "adms", "js", "nfo"])}
+    ${env.PREFIXES}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${automaticSubmissionTaskUriSparql}
@@ -138,7 +138,7 @@ export async function automaticSubmissionTaskFail(submissionGraph, automaticSubm
   //Also set the job to failure
   const jobUriSparql = sparqlEscapeUri(jobUri);
   const assJobQuery = `
-    ${env.getPrefixes(["xsd", "asj", "mu", "dct", "task", "adms", "js", "nfo"])}
+    ${env.PREFIXES}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${jobUriSparql}

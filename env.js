@@ -56,18 +56,11 @@ export const PREFIX_TABLE = {
   tasko:        'http://lblod.data.gift/id/jobs/concept/TaskOperation/',
   jobo:         'http://lblod.data.gift/id/jobs/concept/JobOperation/',
   hrvst:        'http://lblod.data.gift/vocabularies/harvesting/',
-}
+};
+
 export const PREFIXES = (() => {
   const all = [];
   for (const key in PREFIX_TABLE)
     all.push(`PREFIX ${key}: <${PREFIX_TABLE[key]}>`);
   return all.join('\n');
 })();
-
-export function getPrefixes(collOfPrefixes) {
-  const all = [];
-  for (const key of collOfPrefixes)
-    all.push(`PREFIX ${key}: <${PREFIX_TABLE[key]}>`);
-  return all.join('\n');
-}
-

@@ -6,7 +6,7 @@ export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
   const remoteDataObjectUriSparql = sparqlEscapeUri(remoteDataObjectUri);
   //TODO this query is rather fragile, relying on the links between melding, job and task via non-documented properties, made by the download-url-service
   const taskQuery = `
-    ${env.getPrefixes(['nie', 'prov', 'dct', 'task', 'adms', 'tasko', 'ext'])}
+    ${env.PREFIXES}
     SELECT ?task ?job ?oldStatus ?submissionGraph ?fileUri ?errorMsg WHERE {
       ?melding nie:hasPart ${remoteDataObjectUriSparql} .
       GRAPH ?submissionGraph {
@@ -62,7 +62,7 @@ export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUr
 async function complementLogicalFileMetaData(submissionGraph, physicalFileUri, logicalFileUri) {
   const submissionGraphSparql = sparqlEscapeUri(submissionGraph);
   return update(`
-    ${env.getPrefixes(['nfo', 'dct', 'dbpedia'])}
+    ${env.PREFIXES}
     INSERT {
       GRAPH ${submissionGraphSparql} {
         ${sparqlEscapeUri(logicalFileUri)}
@@ -94,7 +94,7 @@ export async function downloadTaskCreate(submissionGraph, jobUri, remoteDataObje
   const inputContainerUuid = uuid();
   const harvestingCollectionUuid = uuid();
   const downloadTaskQuery = `
-    ${env.getPrefixes(['xsd', 'rdf', 'asj', 'mu', 'adms', 'js', 'dct', 'nfo', 'task', 'cogs', 'services', 'tasko', 'hrvst'])}
+    ${env.PREFIXES}
     INSERT DATA {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         asj:${downloadTaskUuid}
@@ -132,7 +132,7 @@ async function downloadStarted(submissionGraph, downloadTaskUri) {
   const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
   const downloadTaskQuery = `
-    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js'])}
+    ${env.PREFIXES}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${downloadTaskUriSparql}
@@ -163,7 +163,7 @@ async function downloadSuccess(submissionGraph, downloadTaskUri, logicalFileUri)
   const resultContainerUuid = uuid();
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
   const downloadTaskQuery = `
-    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js', 'asj', 'mu', 'task', 'nfo'])}
+    ${env.PREFIXES}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${downloadTaskUriSparql}
@@ -201,7 +201,7 @@ async function downloadFail(submissionGraph, downloadTaskUri, jobUri, logicalFil
   const resultContainerUuid = uuid();
   const errorUuid = uuid();
   const downloadTaskQuery = `
-    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js',  'asj', 'oslc', 'nfo', 'mu', 'task'])}
+    ${env.PREFIXES}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${downloadTaskUriSparql}
@@ -242,7 +242,7 @@ async function downloadFail(submissionGraph, downloadTaskUri, jobUri, logicalFil
   //Also set the job to failure
   const jobUriSparql = sparqlEscapeUri(jobUri);
   const assJobQuery = `
-    ${env.getPrefixes(['xsd', 'rdf', 'adms', 'dct', 'js', 'asj', 'task'])}
+    ${env.PREFIXES}
     DELETE {
       GRAPH ${sparqlEscapeUri(submissionGraph)} {
         ${jobUriSparql}
