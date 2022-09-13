@@ -160,19 +160,27 @@ app.post('/download-status-update', async function (req, res) {
 //  }
 
 app.post('/status', async function (req, res) {
-  const jobUri = req.body.job;
-  const { statusRdfJSTriples, JobStatusContext, JobStatusFrame } =
-    await getJobStatusRdfJS(jobUri);
-  const writer = new N3.Writer({ format: 'N-Triples' });
-  writer.addQuads(statusRdfJSTriples);
-  return new Promise((resolve, reject) => {
-    writer.end((error, result) => {
-      if (error) reject(error);
-      else resolve(result);
-    });
-  })
-    .then((tl) => jsonld.default.fromRDF(tl, { format: 'application/n-quads' }))
-    .then((jsonld1) => jsonld.default.frame(jsonld1, JobStatusFrame))
-    .then((framed) => jsonld.default.compact(framed, JobStatusContext))
-    .then((compacted) => res.status(200).send(compacted));
+  try {
+    const jobUri = req.body.job;
+    const { statusRdfJSTriples, JobStatusContext, JobStatusFrame } =
+      await getJobStatusRdfJS(jobUri);
+    const writer = new N3.Writer({ format: 'N-Triples' });
+    writer.addQuads(statusRdfJSTriples);
+    const ttl = await (new Promise((resolve, reject) => {
+      writer.end((error, result) => {
+        if (error) reject(error);
+        else resolve(result);
+      });
+    }));
+    const jsonld1 = await jsonld.default.fromRDF(ttl, { format: 'application/n-quads' });
+    const framed = await jsonld.default.frame(jsonld1, JobStatusFrame);
+    const compacted = await jsonld.default.compact(framed, JobStatusContext);
+    res.status(200).send(compacted);
+  } catch (error) {
+    const message = 'Something went wrong while fetching the status of the submitted resource and its associated Job';
+    console.error(message, error.message);
+    console.error(error);
+    await sendErrorAlert({ message, detail: error.message });
+    res.status(500).send(`${message}\n${error.message}`);
+  }
 });
