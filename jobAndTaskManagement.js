@@ -2,6 +2,10 @@ import * as env from './env.js';
 import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import { uuid, sparqlEscapeString, sparqlEscapeDateTime, sparqlEscapeUri } from 'mu';
 import { downloadTaskCreate } from './downloadTaskManagement.js';
+import { SparqlJsonParser } from 'sparqljson-parse';
+const N3 = require('n3');
+const { DataFactory } = N3;
+const { quad } = DataFactory;
 
 export async function startJob(submissionGraph, meldingUri) {
   try {
@@ -57,6 +61,111 @@ export async function startJob(submissionGraph, meldingUri) {
   catch (e) {
     console.error(e);
   }
+}
+
+const JobStatusContext = {
+  cogs: 'http://vocab.deri.ie/cogs#',
+  adms: 'http://www.w3.org/ns/adms#',
+  prov: 'http://www.w3.org/ns/prov#',
+  meb: 'http://rdf.myexperiment.org/ontologies/base/',
+  oslc: 'http://open-services.net/ns/core#',
+  task: 'http://redpencil.data.gift/vocabularies/tasks/',
+  xsd: 'http://www.w3.org/2001/XMLSchema#',
+  status: {
+    '@id': 'adms:status',
+    '@type': '@id',
+  },
+  generated: {
+    '@id': 'prov:generated',
+    '@type': '@id',
+  },
+  error: {
+    '@id': 'task:error',
+    '@type': '@id',
+  },
+  message: {
+    '@id': 'oslc:message',
+    //Type string is implicit when nothing else specified.
+    //Also, when including the following, the property becomes oslc:message instead of just message, for some reason.
+    //"@type": "xsd:string",
+  },
+};
+const JobStatusFrame = {
+  '@context': {
+    cogs: 'http://vocab.deri.ie/cogs#',
+    adms: 'http://www.w3.org/ns/adms#',
+    prov: 'http://www.w3.org/ns/prov#',
+    meb: 'http://rdf.myexperiment.org/ontologies/base/',
+    oslc: 'http://open-services.net/ns/core#',
+    task: 'http://redpencil.data.gift/vocabularies/tasks/',
+    xsd: 'http://www.w3.org/2001/XMLSchema#',
+    status: {
+      '@id': 'adms:status',
+      '@type': '@id',
+    },
+    error: {
+      '@id': 'task:error',
+      '@type': 'oslc:Error',
+    },
+    generated: {
+      '@id': 'prov:generated',
+      '@type': 'meb:Submission',
+    },
+    message: {
+      '@id': 'oslc:message',
+      '@type': 'xsd:string',
+    },
+  },
+  '@type': 'cogs:Job',
+  generated: {
+    '@embed': '@always',
+  },
+  error: {
+    '@embed': '@always',
+  },
+};
+export async function getJobStatusRdfJS(jobUri) {
+  const response = await query(`
+    ${env.PREFIXES}
+    CONSTRUCT {
+      ${sparqlEscapeUri(jobUri)}
+        a cogs:Job ;
+        adms:status ?jobStatus ;
+        prov:generated ?submission ;
+        task:error ?error.
+      ?submission
+        rdf:type meb:Submission ;
+        adms:status ?submissionStatus .
+      ?error
+        a oslc:Error ;
+        oslc:message ?message .
+    }
+    WHERE {
+      ${sparqlEscapeUri(jobUri)}
+        a cogs:Job ;
+        dct:creator services:automatic-submission-service ;
+        adms:status ?jobStatus ;
+        task:cogsOperation cogs:TransformationProcess ;
+        task:operation jobo:automaticSubmissionFlow ;
+        prov:generated ?submission .
+      ?submission
+        rdf:type meb:Submission ;
+        adms:status ?submissionStatus .
+      OPTIONAL {
+        ${sparqlEscapeUri(jobUri)}
+          task:error ?error .
+        ?error
+          a oslc:Error ;
+          oslc:message ?message .
+      }
+    }
+  `);
+  const sparqlJsonParser = new SparqlJsonParser();
+  const parsedResults = sparqlJsonParser.parseJsonResults(response);
+  const statusRdfJSTriples = parsedResults.map((binding) =>
+    quad(binding.s, binding.p, binding.o)
+  );
+  return { statusRdfJSTriples, JobStatusContext, JobStatusFrame };
 }
 
 export async function automaticSubmissionTaskSuccess(submissionGraph, automaticSubmissionTaskUri, jobUri, remoteDataObjectUri) {

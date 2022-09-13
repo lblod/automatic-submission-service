@@ -1,6 +1,7 @@
 import _ from 'lodash';
 import { uuid } from 'mu';
 import * as env from './env.js';
+import { SubmissionRegistrationContext } from './SubmissionRegistrationContext.js';
 
 /*
  * This method ensures some basic things on the root node of the request body
@@ -11,8 +12,8 @@ export async function enrichBody(originalBody) {
   if (!originalBody["@type"]) {
     originalBody["@type"] = "meb:Submission";
   }
-  if (!originalBody["@context"]) {
-    originalBody["@context"] = env.AUTOMATIC_SUBMISSION_JSON_LD_CONTEXT_ENDPOINT;
+  if (!originalBody['@context']) {
+    originalBody['@context'] = SubmissionRegistrationContext;
   }
   const id = uuid();
   originalBody["http://mu.semte.ch/vocabularies/core/uuid"] = id;

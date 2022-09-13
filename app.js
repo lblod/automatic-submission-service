@@ -1,12 +1,13 @@
 import {app, errorHandler} from 'mu';
-import { verifyKeyAndOrganisation, storeSubmission, isSubmitted, sendErrorAlert, cleanseRequestBody } from './support';
+import { verifyKeyAndOrganisation, storeSubmission, isSubmitted, sendErrorAlert, cleanseRequestBody } from './support.js';
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
-import {enrichBody, extractInfoFromTriples, validateExtractedInfo} from "./jsonld-input";
-import { remoteDataObjectStatusChange } from './downloadTaskManagement.js';
+import {enrichBody, extractInfoFromTriples, validateExtractedInfo} from './jsonld-input.js';
 import * as env from './env.js';
 import { getTaskInfoFromRemoteDataObject, downloadTaskUpdate } from './downloadTaskManagement.js';
+import { getJobStatusRdfJS } from './jobAndTaskManagement.js';
 import { Lock } from 'async-await-mutex-lock';
+const N3 = require('n3');
 
 app.use(errorHandler);
 // support both jsonld and json content-type
@@ -29,7 +30,7 @@ app.post('/melding', async function (req, res, next) {
       // enrich the body with minimum required json LD properties
       await enrichBody(body);
       // extracted the minimal required triples
-      const triples = await jsonld.toRDF(body, {});
+      const triples = await jsonld.default.toRDF(body, {});
 
       const extracted = extractInfoFromTriples(triples);
 
@@ -142,7 +143,7 @@ app.post('/download-status-update', async function (req, res) {
       });
     res.status(500).json({
       errors: [{
-        title: "An error occured while updating the staus of a downloaded file",
+        title: "An error occured while updating the status of a downloaded file",
         error: JSON.stringify(e),
       }]
     });
@@ -152,3 +153,26 @@ app.post('/download-status-update', async function (req, res) {
   }
 });
 
+//Incoming request:
+//  HTTP POST or HTTP GET /status
+//  {
+//      submission: <uri>
+//  }
+
+app.post('/status', async function (req, res) {
+  const jobUri = req.body.job;
+  const { statusRdfJSTriples, JobStatusContext, JobStatusFrame } =
+    await getJobStatusRdfJS(jobUri);
+  const writer = new N3.Writer({ format: 'N-Triples' });
+  writer.addQuads(statusRdfJSTriples);
+  return new Promise((resolve, reject) => {
+    writer.end((error, result) => {
+      if (error) reject(error);
+      else resolve(result);
+    });
+  })
+    .then((tl) => jsonld.default.fromRDF(tl, { format: 'application/n-quads' }))
+    .then((jsonld1) => jsonld.default.frame(jsonld1, JobStatusFrame))
+    .then((framed) => jsonld.default.compact(framed, JobStatusContext))
+    .then((compacted) => res.status(200).send(compacted));
+});

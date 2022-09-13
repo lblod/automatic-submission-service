@@ -25,9 +25,11 @@ export const CREATOR = 'http://lblod.data.gift/services/automatic-submission-ser
 
 export const PREFIX_TABLE = {
   meb:          'http://rdf.myexperiment.org/ontologies/base/',
+  rdf:          'http://www.w3.org/1999/02/22-rdf-syntax-ns#',
   xsd:          'http://www.w3.org/2001/XMLSchema#',
   pav:          'http://purl.org/pav/',
   dct:          'http://purl.org/dc/terms/',
+  oslc:         'http://open-services.net/ns/core#',
   melding:      'http://lblod.data.gift/vocabularies/automatische-melding/',
   lblodBesluit: 'http://lblod.data.gift/vocabularies/besluit/',
   adms:         'http://www.w3.org/ns/adms#',
