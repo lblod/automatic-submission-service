@@ -1,54 +1,74 @@
 # automatic-submission-service
+
 Microservice providing an API for external parties to automatically process a submission.
 
 ## Getting started
+
 ### Add the service to a stack
+
 Add the service to your `docker-compose.yml`:
 
-```
-  automatic-submission:
-    image: lblod/automatic-submission-service
+```yaml
+automatic-submission:
+  image: lblod/automatic-submission-service
 ```
 
 Configure the dispatcher by adding the following rule:
+
+```elixir
+match "/melding/*path" do
+  Proxy.forward conn, path, "http://automatic-submission/melding"
+end
 ```
-  match "/melding/*path" do
-    Proxy.forward conn, path, "http://automatic-submission/melding"
-  end
-```
+
 ## How-to guides
+
 ### Authorize an agent to submit on behalf of an organization
+
 To allow an organization to submit a publication on behalf of another organization, add a resource similar to the example below:
 
-```
+```sparql
 PREFIX muAccount: 	<http://mu.semte.ch/vocabularies/account/>
 PREFIX mu:   <http://mu.semte.ch/vocabularies/core/>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
 
 INSERT DATA {
-    GRAPH <http://mu.semte.ch/graphs/automatic-submission> {
-        <http://example.com/vendor/d3c9e5e5-d50c-46c9-8f09-6af76712c277> a foaf:Agent, ext:Vendor ;
-                              muAccount:key "my-super-secret-key";
-                              muAccount:canActOnBehalfOf <http://data.lblod.info/id/bestuurseenheden/d64157ef-bde2-4814-b77a-2d43ce90d>;
-                              foaf:name "Test vendor";
-                              mu:uuid "d3c9e5e5-d50c-46c9-8f09-6af76712c277".
-    }
+  GRAPH <http://mu.semte.ch/graphs/automatic-submission> {
+    <http://example.com/vendor/d3c9e5e5-d50c-46c9-8f09-6af76712c277>
+      a foaf:Agent, ext:Vendor ;
+      muAccount:key "my-super-secret-key";
+      muAccount:canActOnBehalfOf <http://data.lblod.info/id/bestuurseenheden/d64157ef-bde2-4814-b77a-2d43ce90d>;
+      foaf:name "Test vendor";
+      mu:uuid "d3c9e5e5-d50c-46c9-8f09-6af76712c277".
+  }
 }
 ```
-
 
 ## Reference
 
 ### API
+
+To register a new resource as a submission:
+
 ```
-POST /melding # Content-Type: application/json
+POST /melding # Content-Type: application/json or application/ld+json
 ```
 
-See also: https://lblod.github.io/pages-vendors/#/docs/submission-api
+Use the JSON-LD context as described in [Meldingsplicht API](https://lblod.github.io/pages-vendors/#/docs/submission-api) for how to structure the body.
+
+To fetch the status of the procesing of the resource:
+
+```
+POST /status  # Content-Type: application/json or application/ld+json
+```
+
+Getting the status can be done in the same context as registering a submission, but supply a submission URI instead. Look at some examples below.
 
 #### Examples
-##### Inline context
+
+##### Submission with inline context
+
 ```json
 {
   "@context": {
@@ -59,19 +79,22 @@ See also: https://lblod.github.io/pages-vendors/#/docs/submission-api
     "meb": "http://rdf.myexperiment.org/ontologies/base/",
     "foaf": "http://xmlns.com/foaf/0.1/",
     "pav": "http://purl.org/pav/",
-
     "organization": {
       "@id": "pav:createdBy",
       "@type": "@id"
     },
-    "url": { "@type": "@id", "@id": "prov:atLocation"},
+    "href": { "@type": "@id", "@id": "prov:atLocation"},
     "submittedResource": { "@type": "@id", "@id": "dct:subject" },
     "key": "muAccount:key",
     "publisher": "pav:providedBy",
     "uri": {
       "@type": "@id",
       "@id": "@id"
-    }
+    },
+    "status": {
+      "@type": "@id",
+      "@id": "adms:status"
+    },
   },
   "organization": {
     "uri": "http://data.lblod.info/id/bestuurseenheden/2498239",
@@ -88,21 +111,23 @@ See also: https://lblod.github.io/pages-vendors/#/docs/submission-api
   "status": {
     "uri": "http://data.lblod.info/document-statuses/concept"
   },
-  "url": "http://raadpleegomgeving.tielt-winge.be/floppie",
+  "href": "http://raadpleegomgeving.tielt-winge.be/floppie",
   "@id": "http://data.lblod.info/submissions/4298239",
   "@type": "meb:Submission"
 }
 ```
 
-##### Mix inline and external context
+##### Submission with mix of inline and external context
+
 ```json
 {
   "@context": [
-  "https://lblod.data.gift/contexts/automatische-melding/v1/context.json",
-  {
-    "ext": "http://mu.semte.ch/vocabularies/ext/",
-    "testedAndApprovedBy": { "@type": "@id", "@id": "ext:testedAndApprovedBy" }
-  }],
+    "https://lblod.data.gift/contexts/automatische-melding/v1/context.json",
+    {
+      "ext": "http://mu.semte.ch/vocabularies/ext/",
+      "testedAndApprovedBy": { "@type": "@id", "@id": "ext:testedAndApprovedBy" }
+    }
+  ],
   "testedAndApprovedBy": "http://data.lblod.info/a/custom/tester",
   "organization": {
     "uri": "http://data.lblod.info/id/bestuurseenheden/2498239",
@@ -119,13 +144,45 @@ See also: https://lblod.github.io/pages-vendors/#/docs/submission-api
   "status": {
     "uri": "http://data.lblod.info/document-statuses/concept"
   },
-  "url": "http://raadpleegomgeving.tielt-winge.be/floppie",
+  "href": "http://raadpleegomgeving.tielt-winge.be/floppie",
   "@id": "http://data.lblod.info/submissions/4298239",
   "@type": "meb:Submission"
 }
 ```
 
+#### Submission with minimal body *(not recommended)*
+
+Due to the implementation of this service, the context and some other properties are always attached to the JSON(-LD) body before processing. This means you could get away with a very minimal body such as the following:
+
+```json
+{
+  "href": "http://raadpleegomgeving.tielt-winge.be/floppie",
+  "organization": "http://data.lblod.info/id/bestuurseenheden/2498239",
+  "publisher": {
+    "uri": "http://data.lblod.info/vendors/cipal-schaubroeck",
+    "key": "AE86-GT86",
+  },
+  "submittedResource": "http://data.tielt-winge.be/besluiten/2398230"
+}
+```
+
+#### Status request with minimal body *(not recommended)*
+
+The same as the previous example applies when it comes to asking for the status of the submission:
+
+```json
+{
+  "organization": "http://data.lblod.info/id/bestuurseenheden/2498239",
+  "publisher": {
+    "uri": "http://data.lblod.info/vendors/cipal-schaubroeck",
+    "key": "AE86-GT86",
+  },
+  "submission": "http://data.lblod.info/submissions/4298239"
+}
+```
+
 ### Authorization and security
+
 Submissions can only be submitted by known organizations using the API key they received. Organizations can only submit a publication on behalf of another organization if they have the permission to do so.
 
 The service verifies the API key and permissions in the graph `http://mu.semte.ch/graphs/automatic-submission`. The organization the agents acts on behalf of should have a `mu:uuid`.
@@ -134,7 +191,7 @@ A second layer of authentication can be configured
 
 #### Basic auth
 
-```
+```json
 {
   "href": "http://raadpleegomgeving.tielt-winge.be/90283409812734",
   "authentication": {
@@ -158,7 +215,7 @@ A second layer of authentication can be configured
 
 #### Oath2
 
-```
+```json
 {
   "href": "http://raadpleegomgeving.tielt-winge.be/90283409812734",
   "authentication":{
@@ -199,52 +256,61 @@ The model is specified in the [README of the job-controller-service](https://git
 
 #### Automatic submission task statuses
 
-Once the automatic submission process starts, the status of the automatic submission task is updated to http://redpencil.data.gift/id/concept/JobStatus/busy.
+Once the automatic submission process starts, the status of the automatic submission task is updated to `http://redpencil.data.gift/id/concept/JobStatus/busy`.
 
-On successful completion, the status of the automatic submission task is updated to http://redpencil.data.gift/id/concept/JobStatus/success. The resultsContainer of the task wil contain a harvesting collection that refers to the remote data object for the HTML page containing the RDFa for the submission.
+On successful completion, the status of the automatic submission task is updated to `http://redpencil.data.gift/id/concept/JobStatus/success`. The resultsContainer of the task wil contain a harvesting collection that refers to the remote data object for the HTML page containing the RDFa for the submission.
 
-On failure, the status is updated to http://redpencil.data.gift/id/concept/JobStatus/failed. If possible, an error is written to the database and the error is linked to this failed task.
+On failure, the status is updated to `http://redpencil.data.gift/id/concept/JobStatus/failed`. If possible, an error is written to the database and the error is linked to this failed task.
 
 #### Download-url-service task
 
 In addition to a Job and Task for the automatic submission service, this service will also manage the download process from the download-url-service. The download-url-service is a reusable component that could not (yet) be adapted to integrate with the jobs-controller-service's model, so that service needs to be managed here too. To do this, some rules in the delta-notifier are needed and there is a extra API entry specifically for managing download statuses. This process will also create tasks as describe by the model referenced above. The jobs-controller-service needs to pick up after the download-url-service's task has been successful.
 
-___
-
 #### Submission
+
 Submission to be processed automatically. The properties of the submission are retrieved from the JSON-LD body of the request.
 
 ##### Class
+
 `meb:Submission`
 
 ##### Properties
+
 For a full list of properties of a submission, we refer to the [automatic submission documentation](https://lblod.github.io/pages-vendors/#/docs/submission-annotations). In addition to the properties, the automatic submission services enriches the submission with the following properties:
 
 | Name              | Predicate     | Range                  | Definition                                     |
 |-------------------|---------------|------------------------|------------------------------------------------|
 | part              | `nie:hasPart` | `nfo:RemoteDataObject` | Submission publication URL to download         |
 | submittedResource | `dct:subject` | `foaf:Document`        | Document that is the subject of the submission |
-___
+
 #### Remote data object
+
 Upon receipt of the submission, the service will create a remote data object for the submitted publication URL which will be downloaded by the [download-url-service](https://github.com/lblod/download-url-service).
 
 ##### Class
+
 `nfo:RemoteDataObject`
 
 ##### Properties
+
 The model of the remote data object is described in the [README of the download-url-service](https://github.com/lblod/download-url-service).
-___
+
 #### Submitted resource
+
 Document that is the subject of the submission. The properties of the submitted resource are harvested from the publication URL by the [import-submission-service](https://github.com/lblod/import-submission-service), [enrich-submission-service](https://github.com/lblod/enrich-submission-service) and [validate-submission-service](https://github.com/lblod/validate-submission-service) at a later stage in the automatic submission process.
 
 ##### Class
+
 `foaf:Document` (and `ext:SubmissionDocument`)
 
 ##### Properties
+
 For a full list of properties of a submitted resource, we refer to the [automatic submission documentation](https://lblod.github.io/pages-vendors/#/docs/submission-annotations).
 
 ## Related services
+
 The following services are also involved in the automatic processing of a submission:
+
 * [download-url-service](https://github.com/lblod/download-url-service)
 * [import-submission-service](https://github.com/lblod/import-submission-service)
 * [enrich-submission-service](https://github.com/lblod/enrich-submission-service)
