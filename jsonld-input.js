@@ -31,6 +31,23 @@ export async function enrichBody(originalBody) {
   return originalBody;
 }
 
+export async function enrichBodyForStatus(body) {
+  if (!body['@context']) {
+    body['@context'] = SubmissionRegistrationContext;
+  }
+  const requestId = uuid();
+  if (!body['@id'])
+    body['@id'] = `http://data.lblod.info/submission-status-request/${requestId}`;
+  if (!body['@type'])
+    body['@type'] = 'http://data.lblod.info/submission-status-request/Request';
+  if (body.authentication) {
+    body.authentication['@id'] = `http://data.lblod.info/authentications/${uuid()}`;
+    body.authentication.configuration['@id'] = `http://data.lblod.info/configurations/${uuid()}`;
+    body.authentication.credentials['@id'] = `http://data.lblod.info/credentials/${uuid()}`;
+  }
+  return body;
+}
+
 export function extractInfoFromTriples(triples) {
   const key = _.get(triples.find(
     (triple) => triple.predicate.value === 'http://mu.semte.ch/vocabularies/account/key'), "object.value");

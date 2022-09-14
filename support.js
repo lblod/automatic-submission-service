@@ -137,7 +137,7 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
 
     await jobsAndTasks.automaticSubmissionTaskSuccess(submissionGraph, automaticSubmissionTaskUri, jobUri, remoteDataUri);
 
-    return jobUri;
+    return { submissionUri: meldingUri, jobUri };
   } catch (e) {
     console.error(`Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${automaticSubmissionTaskUri}.`);
     console.error(e.message);

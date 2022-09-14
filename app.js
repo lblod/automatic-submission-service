@@ -2,12 +2,14 @@ import {app, errorHandler} from 'mu';
 import { verifyKeyAndOrganisation, storeSubmission, isSubmitted, sendErrorAlert, cleanseRequestBody } from './support.js';
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
-import {enrichBody, extractInfoFromTriples, validateExtractedInfo} from './jsonld-input.js';
+import { enrichBody, enrichBodyForStatus, extractInfoFromTriples, validateExtractedInfo } from './jsonld-input.js';
 import * as env from './env.js';
 import { getTaskInfoFromRemoteDataObject, downloadTaskUpdate } from './downloadTaskManagement.js';
-import { getJobStatusRdfJS } from './jobAndTaskManagement.js';
+import { getSubmissionStatusRdfJS } from './jobAndTaskManagement.js';
 import { Lock } from 'async-await-mutex-lock';
 const N3 = require('n3');
+const { DataFactory } = N3;
+const { namedNode } = DataFactory;
 
 app.use(errorHandler);
 // support both jsonld and json content-type
@@ -88,8 +90,8 @@ app.post('/melding', async function (req, res, next) {
 
       // process the new auto-submission
       const submissionGraph = `http://mu.semte.ch/graphs/organizations/${organisationID}/LoketLB-toezichtGebruiker`;
-      const uri = await storeSubmission(triples, submissionGraph, submissionGraph, authenticationConfiguration);
-      res.status(201).send({uri}).end();
+      const { submissionUri, jobUri } = await storeSubmission(triples, submissionGraph, submissionGraph, authenticationConfiguration);
+      res.status(201).send({submission: submissionUri, job: jobUri}).end();
     }
   } catch (e) {
     console.error(e.message);
@@ -156,22 +158,37 @@ app.post('/download-status-update', async function (req, res) {
 //Incoming request:
 //  HTTP POST or HTTP GET /status
 //  {
-//      submission: <uri>
+//     submission: <uri>,
+//
 //  }
 
 app.post('/status', async function (req, res) {
   try {
-    const jobUri = req.body.job;
+    ensureValidContentType(req.get('content-type'));
+    const body = req.body;
+    const enrichedBody = await enrichBodyForStatus(body);
+
+    const requestNQuads = await jsonld.default.toRDF(enrichedBody, { format: 'application/n-quads' });
+    const parser = new N3.Parser({ format: 'application/n-quads' });
+    const requestRdfjsTriples = parser.parse(requestNQuads);
+    const store = new N3.Store();
+    store.addQuads(requestRdfjsTriples);
+
+    const submissionUris = store.getObjects(undefined, namedNode('http://purl.org/dc/terms/subject'));
+    let submissionUri;
+    if (submissionUris.length > 0) submissionUri = [...submissionUris][0].value;
+    else throw new Error('There was no submission URI in the request');
+
     const { statusRdfJSTriples, JobStatusContext, JobStatusFrame } =
-      await getJobStatusRdfJS(jobUri);
-    const writer = new N3.Writer({ format: 'N-Triples' });
+      await getSubmissionStatusRdfJS(submissionUri);
+    const writer = new N3.Writer({ format: 'application/n-quads' });
     writer.addQuads(statusRdfJSTriples);
-    const ttl = await (new Promise((resolve, reject) => {
+    const ttl = await new Promise((resolve, reject) => {
       writer.end((error, result) => {
         if (error) reject(error);
         else resolve(result);
       });
-    }));
+    });
     const jsonld1 = await jsonld.default.fromRDF(ttl, { format: 'application/n-quads' });
     const framed = await jsonld.default.frame(jsonld1, JobStatusFrame);
     const compacted = await jsonld.default.compact(framed, JobStatusContext);
@@ -184,3 +201,12 @@ app.post('/status', async function (req, res) {
     res.status(500).send(`${message}\n${error.message}`);
   }
 });
+
+///////////////////////////////////////////////////////////////////////////////
+// Helpers
+///////////////////////////////////////////////////////////////////////////////
+
+function ensureValidContentType(contentType) {
+  if (!/application\/(ld\+)?json/.test(contentType))
+    throw new Error('Content-Type not valid, only application/json or application/ld+json are accepted');
+}

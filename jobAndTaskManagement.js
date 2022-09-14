@@ -124,16 +124,16 @@ const JobStatusFrame = {
     '@embed': '@always',
   },
 };
-export async function getJobStatusRdfJS(jobUri) {
+export async function getSubmissionStatusRdfJS(submissionUri) {
   const response = await query(`
     ${env.PREFIXES}
     CONSTRUCT {
-      ${sparqlEscapeUri(jobUri)}
+      ?job
         a cogs:Job ;
         adms:status ?jobStatus ;
         prov:generated ?submission ;
         task:error ?error.
-      ?submission
+      ${sparqlEscapeUri(submissionUri)}
         rdf:type meb:Submission ;
         adms:status ?submissionStatus .
       ?error
@@ -141,18 +141,18 @@ export async function getJobStatusRdfJS(jobUri) {
         oslc:message ?message .
     }
     WHERE {
-      ${sparqlEscapeUri(jobUri)}
+      ${sparqlEscapeUri(submissionUri)}
+        rdf:type meb:Submission ;
+        adms:status ?submissionStatus .
+      ?job
         a cogs:Job ;
         dct:creator services:automatic-submission-service ;
         adms:status ?jobStatus ;
         task:cogsOperation cogs:TransformationProcess ;
         task:operation jobo:automaticSubmissionFlow ;
         prov:generated ?submission .
-      ?submission
-        rdf:type meb:Submission ;
-        adms:status ?submissionStatus .
       OPTIONAL {
-        ${sparqlEscapeUri(jobUri)}
+        ?job
           task:error ?error .
         ?error
           a oslc:Error ;

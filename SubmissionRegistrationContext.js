@@ -53,4 +53,8 @@ export const SubmissionRegistrationContext = {
   clientSecret: 'dgftOauth:clientSecret',
   username: 'meb:username',
   password: 'muAccount:password',
+  submission: {
+    '@type': '@id',
+    '@id': 'dct:subject',
+  },
 };
