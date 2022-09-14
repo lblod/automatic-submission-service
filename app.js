@@ -2,7 +2,13 @@ import {app, errorHandler} from 'mu';
 import { verifyKeyAndOrganisation, storeSubmission, isSubmitted, sendErrorAlert, cleanseRequestBody } from './support.js';
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
-import { enrichBody, enrichBodyForStatus, extractInfoFromTriples, validateExtractedInfo } from './jsonld-input.js';
+import {
+  enrichBodyForRegister,
+  enrichBodyForStatus,
+  extractInfoFromTriplesForRegister,
+  extractAuthentication,
+  validateExtractedInfo,
+} from './jsonld-input.js';
 import * as env from './env.js';
 import { getTaskInfoFromRemoteDataObject, downloadTaskUpdate } from './downloadTaskManagement.js';
 import { getSubmissionStatusRdfJS } from './jobAndTaskManagement.js';
@@ -30,11 +36,11 @@ app.post('/melding', async function (req, res, next) {
       //console.debug(body);
 
       // enrich the body with minimum required json LD properties
-      await enrichBody(body);
+      await enrichBodyForRegister(body);
       // extracted the minimal required triples
       const triples = await jsonld.default.toRDF(body, {});
 
-      const extracted = extractInfoFromTriples(triples);
+      const extracted = extractInfoFromTriplesForRegister(triples);
 
       // check if the minimal required payload is available
       for (let prop in extracted) {
@@ -164,37 +170,33 @@ app.post('/download-status-update', async function (req, res) {
 
 app.post('/status', async function (req, res) {
   try {
-    ensureValidContentType(req.get('content-type'));
+    await ensureValidContentType(req.get('content-type'));
     const body = req.body;
     const enrichedBody = await enrichBodyForStatus(body);
 
-    const requestNQuads = await jsonld.default.toRDF(enrichedBody, { format: 'application/n-quads' });
-    const parser = new N3.Parser({ format: 'application/n-quads' });
-    const requestRdfjsTriples = parser.parse(requestNQuads);
-    const store = new N3.Store();
-    store.addQuads(requestRdfjsTriples);
+    const store = await jsonLdToStore(enrichedBody);
 
-    const submissionUris = store.getObjects(undefined, namedNode('http://purl.org/dc/terms/subject'));
-    let submissionUri;
-    if (submissionUris.length > 0) submissionUri = [...submissionUris][0].value;
-    else throw new Error('There was no submission URI in the request');
+    await ensureAuthorisation(store);
+
+    const submissionUris = store.getObjects(
+      undefined,
+      namedNode('http://purl.org/dc/terms/subject')
+    );
+    const submissionUri = submissionUris[0]?.value;
+    if (!submissionUri)
+      throw new Error('There was no submission URI in the request');
 
     const { statusRdfJSTriples, JobStatusContext, JobStatusFrame } =
       await getSubmissionStatusRdfJS(submissionUri);
-    const writer = new N3.Writer({ format: 'application/n-quads' });
-    writer.addQuads(statusRdfJSTriples);
-    const ttl = await new Promise((resolve, reject) => {
-      writer.end((error, result) => {
-        if (error) reject(error);
-        else resolve(result);
-      });
-    });
-    const jsonld1 = await jsonld.default.fromRDF(ttl, { format: 'application/n-quads' });
-    const framed = await jsonld.default.frame(jsonld1, JobStatusFrame);
-    const compacted = await jsonld.default.compact(framed, JobStatusContext);
-    res.status(200).send(compacted);
+    const jsonLdObject = await storeToJsonLd(
+      statusRdfJSTriples,
+      JobStatusContext,
+      JobStatusFrame
+    );
+    res.status(200).send(jsonLdObject);
   } catch (error) {
-    const message = 'Something went wrong while fetching the status of the submitted resource and its associated Job';
+    const message =
+      'Something went wrong while fetching the status of the submitted resource and its associated Job';
     console.error(message, error.message);
     console.error(error);
     await sendErrorAlert({ message, detail: error.message });
@@ -208,5 +210,58 @@ app.post('/status', async function (req, res) {
 
 function ensureValidContentType(contentType) {
   if (!/application\/(ld\+)?json/.test(contentType))
-    throw new Error('Content-Type not valid, only application/json or application/ld+json are accepted');
+    throw new Error(
+      'Content-Type not valid, only application/json or application/ld+json are accepted'
+    );
+}
+
+async function ensureAuthorisation(store) {
+  const authentication = extractAuthentication(store);
+  if (
+    !(
+      authentication.vendor &&
+      authentication.key &&
+      authentication.organisation
+    )
+  )
+    throw new Error(
+      'The authentication (or part of it) for this request is missing. Make sure to supply publisher (with vendor URI and key) and organization information to the request.'
+    );
+  const organisationID = await verifyKeyAndOrganisation(
+    authentication.vendor,
+    authentication.key,
+    authentication.organisation
+  );
+  if (!organisationID)
+    throw new Error(
+      'Authentication failed, vendor does not have access to the organization or does not exist.'
+    );
+}
+
+async function jsonLdToStore(jsonLdObect) {
+  const requestNQuads = await jsonld.default.toRDF(jsonLdObect, {
+    format: 'application/n-quads',
+  });
+  const parser = new N3.Parser({ format: 'application/n-quads' });
+  const requestRdfjsTriples = parser.parse(requestNQuads);
+  const store = new N3.Store();
+  store.addQuads(requestRdfjsTriples);
+  return store;
+}
+
+async function storeToJsonLd(store, context, frame) {
+  const writer = new N3.Writer({ format: 'application/n-quads' });
+  store.forEach((quad) => writer.addQuad(quad));
+  const ttl = await new Promise((resolve, reject) => {
+    writer.end((error, result) => {
+      if (error) reject(error);
+      else resolve(result);
+    });
+  });
+  const jsonld1 = await jsonld.default.fromRDF(ttl, {
+    format: 'application/n-quads',
+  });
+  const framed = await jsonld.default.frame(jsonld1, frame);
+  const compacted = await jsonld.default.compact(framed, context);
+  return compacted;
 }

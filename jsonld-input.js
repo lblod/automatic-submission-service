@@ -2,13 +2,16 @@ import _ from 'lodash';
 import { uuid } from 'mu';
 import * as env from './env.js';
 import { SubmissionRegistrationContext } from './SubmissionRegistrationContext.js';
+const N3 = require('n3');
+const { DataFactory } = N3;
+const { namedNode } = DataFactory;
 
 /*
  * This method ensures some basic things on the root node of the request body
  * e.g the root node should have a URI (@id), context (@context) and a type.
  * it also adds a uuid for internal processing, since it's used for constructing the URI if necessary
  */
-export async function enrichBody(originalBody) {
+export async function enrichBodyForRegister(originalBody) {
   if (!originalBody["@type"]) {
     originalBody["@type"] = "meb:Submission";
   }
@@ -48,7 +51,7 @@ export async function enrichBodyForStatus(body) {
   return body;
 }
 
-export function extractInfoFromTriples(triples) {
+export function extractInfoFromTriplesForRegister(triples) {
   const key = _.get(triples.find(
     (triple) => triple.predicate.value === 'http://mu.semte.ch/vocabularies/account/key'), "object.value");
 
@@ -74,6 +77,26 @@ export function extractInfoFromTriples(triples) {
     submittedResource,
     status,
     authenticationConfiguration
+  };
+}
+
+export function extractAuthentication(store) {
+  const keys = store.getObjects(
+    undefined,
+    namedNode('http://mu.semte.ch/vocabularies/account/key')
+  );
+  const vendors = store.getObjects(
+    undefined,
+    namedNode('http://purl.org/pav/providedBy')
+  );
+  const organisations = store.getObjects(
+    undefined,
+    namedNode('http://purl.org/pav/createdBy')
+  );
+  return {
+    key: keys[0]?.value,
+    vendor: vendors[0]?.value,
+    organisation: organisations[0]?.value,
   };
 }
 
