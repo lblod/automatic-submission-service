@@ -16,6 +16,7 @@ import { Lock } from 'async-await-mutex-lock';
 const N3 = require('n3');
 const { DataFactory } = N3;
 const { namedNode } = DataFactory;
+import rateLimit from 'express-rate-limit';
 
 app.use(errorHandler);
 // support both jsonld and json content-type
@@ -161,19 +162,28 @@ app.post('/download-status-update', async function (req, res) {
   }
 });
 
-//Incoming request:
-//  HTTP POST or HTTP GET /status
-//  {
-//     submission: <uri>,
-//
-//  }
+const statusLimiter = rateLimit({
+  windowMs: 60000,
+  max: 5,
+  message:
+    'There have been too many requests about this submission. The amount of status requests is limited to 5 per minute. Try again later.',
+  keyGenerator: async (req) => {
+    await ensureValidContentType(req.get('content-type'));
+    const enrichedBody = await enrichBodyForStatus(req.body);
+    const store = await jsonLdToStore(enrichedBody);
+    const submissionUris = store.getObjects(
+      undefined,
+      namedNode('http://purl.org/dc/terms/subject')
+    );
+    const submissionUri = submissionUris[0]?.value;
+    return submissionUri || '';
+  },
+});
 
-app.post('/status', async function (req, res) {
+app.post('/status', statusLimiter, async function (req, res) {
   try {
     await ensureValidContentType(req.get('content-type'));
-    const body = req.body;
-    const enrichedBody = await enrichBodyForStatus(body);
-
+    const enrichedBody = await enrichBodyForStatus(req.body);
     const store = await jsonLdToStore(enrichedBody);
 
     await ensureAuthorisation(store);
