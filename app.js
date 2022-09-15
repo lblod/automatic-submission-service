@@ -15,12 +15,12 @@ import {
   extractAuthentication,
   validateExtractedInfo,
 } from './jsonld-input.js';
-import * as env from './env.js';
+import * as cts from './automatic-submission-flow-tools/constants.js';
 import {
   getTaskInfoFromRemoteDataObject,
   downloadTaskUpdate,
-} from './downloadTaskManagement.js';
-import { getSubmissionStatusRdfJS } from './jobAndTaskManagement.js';
+} from './automatic-submission-flow-tools/downloadTaskManagement.js';
+import { getSubmissionStatusRdfJS } from './automatic-submission-flow-tools/jobAndTaskManagement.js';
 import { Lock } from 'async-await-mutex-lock';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
@@ -104,12 +104,14 @@ app.post('/download-status-update', async function (req, res) {
       .map((changeset) => changeset.inserts)
       .filter((inserts) => inserts.length > 0)
       .flat()
-      .filter((insert) => insert.predicate.value === env.ADMS_STATUS_PREDICATE)
+      .filter(
+        (insert) => insert.predicate.value === cts.PREDICATE_TABLE.adms_status
+      )
       .filter(
         (insert) =>
-          insert.object.value === env.DOWNLOAD_STATUSES.ongoing ||
-          insert.object.value === env.DOWNLOAD_STATUSES.success ||
-          insert.object.value === env.DOWNLOAD_STATUSES.failure
+          insert.object.value === cts.DOWNLOAD_STATUSES.ongoing ||
+          insert.object.value === cts.DOWNLOAD_STATUSES.success ||
+          insert.object.value === cts.DOWNLOAD_STATUSES.failure
       );
     for (const remoteDataObjectTriple of actualStatusChange) {
       const {

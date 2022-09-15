@@ -6,7 +6,8 @@ import {
   sparqlEscapeUri,
 } from 'mu';
 import * as env from './env.js';
-import * as jobsAndTasks from './jobAndTaskManagement.js';
+import * as cts from './automatic-submission-flow-tools/constants.js';
+import * as jobsAndTasks from './automatic-submission-flow-tools/jobAndTaskManagement.js';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
@@ -90,7 +91,7 @@ export async function storeSubmission(
     const submittedResource = findSubmittedResource(store);
     const turtle = await storeToTurtle(store);
     await update(`
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT DATA {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
            ${turtle}
@@ -100,7 +101,7 @@ export async function storeSubmission(
       }`);
     //TODO: Is this following query really necessary? A submission always gets a uuid whith enrichBody so this query seems redundant.
     await update(`
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
           ${sparqlEscapeUri(submittedResource)}
@@ -134,7 +135,7 @@ export async function storeSubmission(
     );
 
     await update(`
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT DATA {
         GRAPH ${sparqlEscapeUri(fileGraph)} {
           ${sparqlEscapeUri(remoteDataUri)}
@@ -162,7 +163,7 @@ export async function storeSubmission(
 
     //update created-at/modified-at for submission
     await update(`
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT DATA {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
           ${sparqlEscapeUri(extractSubmissionUrl(store))}
@@ -212,7 +213,7 @@ async function attachClonedAuthenticationConfiguraton(
   remoteObjectGraph
 ) {
   const getInfoQuery = `
-    ${env.PREFIXES}
+    ${cts.SPARQL_PREFIXES}
     SELECT DISTINCT ?graph ?secType ?authenticationConfiguration WHERE {
       GRAPH ?graph {
         ${sparqlEscapeUri(submissionUri)}
@@ -233,7 +234,7 @@ async function attachClonedAuthenticationConfiguraton(
     return;
   } else if (authData.secType === env.BASIC_AUTH) {
     cloneQuery = `
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT {
         GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
           ${sparqlEscapeUri(remoteDataObjectUri)}
@@ -266,7 +267,7 @@ async function attachClonedAuthenticationConfiguraton(
    `;
   } else if (authData.secType == env.OAUTH2) {
     cloneQuery = `
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT {
         GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
           ${sparqlEscapeUri(remoteDataObjectUri)}
@@ -307,7 +308,7 @@ async function attachClonedAuthenticationConfiguraton(
 
 async function cleanCredentials(authenticationConfigurationUri) {
   let cleanQuery = `
-    ${env.PREFIXES}
+    ${cts.SPARQL_PREFIXES}
     DELETE {
       GRAPH ?g {
         ?srcSecrets ?secretsP ?secretsO.
@@ -357,7 +358,7 @@ export function parseResult(result) {
 
 export async function verifyKeyAndOrganisation(vendor, key, organisation) {
   const result = await query(`
-    ${env.PREFIXES}
+    ${cts.SPARQL_PREFIXES}
     SELECT DISTINCT ?organisationID WHERE  {
       GRAPH <http://mu.semte.ch/graphs/automatic-submission> {
         ${sparqlEscapeUri(vendor)}
