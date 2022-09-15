@@ -1,5 +1,11 @@
-import {app, errorHandler} from 'mu';
-import { verifyKeyAndOrganisation, storeSubmission, isSubmitted, sendErrorAlert, cleanseRequestBody } from './support.js';
+import { app, errorHandler } from 'mu';
+import {
+  verifyKeyAndOrganisation,
+  storeSubmission,
+  isSubmitted,
+  sendErrorAlert,
+  cleanseRequestBody,
+} from './support.js';
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
 import {
@@ -10,17 +16,19 @@ import {
   validateExtractedInfo,
 } from './jsonld-input.js';
 import * as env from './env.js';
-import { getTaskInfoFromRemoteDataObject, downloadTaskUpdate } from './downloadTaskManagement.js';
+import {
+  getTaskInfoFromRemoteDataObject,
+  downloadTaskUpdate,
+} from './downloadTaskManagement.js';
 import { getSubmissionStatusRdfJS } from './jobAndTaskManagement.js';
 import { Lock } from 'async-await-mutex-lock';
-const N3 = require('n3');
-const { DataFactory } = N3;
-const { namedNode } = DataFactory;
+import * as N3 from 'n3';
+const { namedNode } = N3.DataFactory;
 import rateLimit from 'express-rate-limit';
 
 app.use(errorHandler);
 // support both jsonld and json content-type
-app.use(bodyParser.json({type: 'application/ld+json'}));
+app.use(bodyParser.json({ type: 'application/ld+json' }));
 app.use(bodyParser.json());
 
 app.post('/melding', async function (req, res) {
@@ -97,31 +105,53 @@ app.post('/download-status-update', async function (req, res) {
       .filter((inserts) => inserts.length > 0)
       .flat()
       .filter((insert) => insert.predicate.value === env.ADMS_STATUS_PREDICATE)
-      .filter((insert) => insert.object.value === env.DOWNLOAD_STATUSES.ongoing ||
-                          insert.object.value === env.DOWNLOAD_STATUSES.success ||
-                          insert.object.value === env.DOWNLOAD_STATUSES.failure);
+      .filter(
+        (insert) =>
+          insert.object.value === env.DOWNLOAD_STATUSES.ongoing ||
+          insert.object.value === env.DOWNLOAD_STATUSES.success ||
+          insert.object.value === env.DOWNLOAD_STATUSES.failure
+      );
     for (const remoteDataObjectTriple of actualStatusChange) {
-      const { downloadTaskUri, jobUri, oldStatus, submissionGraph, fileUri, errorMsg } = await getTaskInfoFromRemoteDataObject(remoteDataObjectTriple.subject.value);
+      const {
+        downloadTaskUri,
+        jobUri,
+        oldStatus,
+        submissionGraph,
+        fileUri,
+        errorMsg,
+      } = await getTaskInfoFromRemoteDataObject(
+        remoteDataObjectTriple.subject.value
+      );
       //Update the status also passing the old status to not make any illegal updates
-      await downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldStatus, remoteDataObjectTriple.object.value, remoteDataObjectTriple.subject.value, fileUri, errorMsg);
+      await downloadTaskUpdate(
+        submissionGraph,
+        downloadTaskUri,
+        jobUri,
+        oldStatus,
+        remoteDataObjectTriple.object.value,
+        remoteDataObjectTriple.subject.value,
+        fileUri,
+        errorMsg
+      );
     }
     res.status(200).send().end();
-  }
-  catch (e) {
+  } catch (e) {
     console.error(e.message);
     if (!e.alreadyStoredError)
       sendErrorAlert({
-        message: 'Could not process a download status update' ,
-        detail: JSON.stringify({ error: e.message, }),
+        message: 'Could not process a download status update',
+        detail: JSON.stringify({ error: e.message }),
       });
     res.status(500).json({
-      errors: [{
-        title: "An error occured while updating the status of a downloaded file",
-        error: JSON.stringify(e),
-      }]
+      errors: [
+        {
+          title:
+            'An error occured while updating the status of a downloaded file',
+          error: JSON.stringify(e),
+        },
+      ],
     });
-  }
-  finally {
+  } finally {
     lock.release();
   }
 });

@@ -1,16 +1,20 @@
 import * as env from './env.js';
 import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
-import { uuid, sparqlEscapeString, sparqlEscapeDateTime, sparqlEscapeUri } from 'mu';
+import {
+  uuid,
+  sparqlEscapeString,
+  sparqlEscapeDateTime,
+  sparqlEscapeUri,
+} from 'mu';
 import { downloadTaskCreate } from './downloadTaskManagement.js';
 import { SparqlJsonParser } from 'sparqljson-parse';
-const N3 = require('n3');
-const { DataFactory } = N3;
-const { quad } = DataFactory;
+import * as N3 from 'n3';
+const { quad } = N3.DataFactory;
 
 export async function startJob(submissionGraph, meldingUri) {
   try {
     const jobUuid = uuid();
-    const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
+    const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
     // Make a cogs:Job for the whole process
     // The prov:generated is strictly not necessary for the model, maybe nice to have
     const jobQuery = `
@@ -55,10 +59,10 @@ export async function startJob(submissionGraph, meldingUri) {
     await update(submissionTaskQuery);
 
     const jobUri = env.JOB_PREFIX.concat(jobUuid);
-    const automaticSubmissionTaskUri = env.JOB_PREFIX.concat(submissionTaskUuid);
-    return { jobUri, automaticSubmissionTaskUri, };
-  }
-  catch (e) {
+    const automaticSubmissionTaskUri =
+      env.JOB_PREFIX.concat(submissionTaskUuid);
+    return { jobUri, automaticSubmissionTaskUri };
+  } catch (e) {
     console.error(e);
   }
 }
@@ -168,9 +172,16 @@ export async function getSubmissionStatusRdfJS(submissionUri) {
   return { statusRdfJSTriples, JobStatusContext, JobStatusFrame };
 }
 
-export async function automaticSubmissionTaskSuccess(submissionGraph, automaticSubmissionTaskUri, jobUri, remoteDataObjectUri) {
-  const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
-  const automaticSubmissionTaskUriSparql = sparqlEscapeUri(automaticSubmissionTaskUri);
+export async function automaticSubmissionTaskSuccess(
+  submissionGraph,
+  automaticSubmissionTaskUri,
+  jobUri,
+  remoteDataObjectUri
+) {
+  const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
+  const automaticSubmissionTaskUriSparql = sparqlEscapeUri(
+    automaticSubmissionTaskUri
+  );
   const resultContainerUuid = uuid();
   const harvestingCollectionUuid = uuid();
   const assTaskQuery = `
@@ -213,9 +224,16 @@ export async function automaticSubmissionTaskSuccess(submissionGraph, automaticS
   return downloadTaskCreate(submissionGraph, jobUri, remoteDataObjectUri);
 }
 
-export async function automaticSubmissionTaskFail(submissionGraph, automaticSubmissionTaskUri, jobUri, errorUri) {
-  const nowSparql = sparqlEscapeDateTime((new Date()).toISOString());
-  const automaticSubmissionTaskUriSparql = sparqlEscapeUri(automaticSubmissionTaskUri);
+export async function automaticSubmissionTaskFail(
+  submissionGraph,
+  automaticSubmissionTaskUri,
+  jobUri,
+  errorUri
+) {
+  const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
+  const automaticSubmissionTaskUriSparql = sparqlEscapeUri(
+    automaticSubmissionTaskUri
+  );
   const errorUriSparql = sparqlEscapeUri(errorUri);
   const assTaskQuery = `
     ${env.PREFIXES}
@@ -273,4 +291,3 @@ export async function automaticSubmissionTaskFail(submissionGraph, automaticSubm
   `;
   await update(assJobQuery);
 }
-

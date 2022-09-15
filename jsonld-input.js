@@ -1,9 +1,8 @@
 import { uuid } from 'mu';
 import * as env from './env.js';
 import { SubmissionRegistrationContext } from './SubmissionRegistrationContext.js';
-const N3 = require('n3');
-const { DataFactory } = N3;
-const { namedNode } = DataFactory;
+import * as N3 from 'n3';
+const { namedNode } = N3.DataFactory;
 
 /*
  * This method ensures some basic things on the root node of the request body
@@ -11,24 +10,31 @@ const { namedNode } = DataFactory;
  * it also adds a uuid for internal processing, since it's used for constructing the URI if necessary
  */
 export async function enrichBodyForRegister(originalBody) {
-  if (!originalBody["@type"]) {
-    originalBody["@type"] = "meb:Submission";
+  if (!originalBody['@type']) {
+    originalBody['@type'] = 'meb:Submission';
   }
   if (!originalBody['@context']) {
     originalBody['@context'] = SubmissionRegistrationContext;
   }
   const id = uuid();
-  originalBody["http://mu.semte.ch/vocabularies/core/uuid"] = id;
-  if (!originalBody["@id"]) {
-    originalBody["@id"] = `http://data.lblod.info/submissions/${id}`;
+  originalBody['http://mu.semte.ch/vocabularies/core/uuid'] = id;
+  if (!originalBody['@id']) {
+    originalBody['@id'] = `http://data.lblod.info/submissions/${id}`;
   }
-  if (!originalBody["status"]) { // concept status by default
-    originalBody["status"] = env.CONCEPT_STATUS;
+  if (!originalBody.status) {
+    // concept status by default
+    originalBody.status = env.CONCEPT_STATUS;
   }
-  if (originalBody["authentication"]) {
-    originalBody["authentication"]["@id"] = `http://data.lblod.info/authentications/${uuid()}`;
-    originalBody["authentication"]["configuration"]["@id"] = `http://data.lblod.info/configurations/${uuid()}`;
-    originalBody["authentication"]["credentials"]["@id"] = `http://data.lblod.info/credentials/${uuid()}`;
+  if (originalBody.authentication) {
+    originalBody.authentication[
+      '@id'
+    ] = `http://data.lblod.info/authentications/${uuid()}`;
+    originalBody.authentication.configuration[
+      '@id'
+    ] = `http://data.lblod.info/configurations/${uuid()}`;
+    originalBody.authentication.credentials[
+      '@id'
+    ] = `http://data.lblod.info/credentials/${uuid()}`;
   }
   return originalBody;
 }
@@ -39,13 +45,21 @@ export async function enrichBodyForStatus(body) {
   }
   const requestId = uuid();
   if (!body['@id'])
-    body['@id'] = `http://data.lblod.info/submission-status-request/${requestId}`;
+    body[
+      '@id'
+    ] = `http://data.lblod.info/submission-status-request/${requestId}`;
   if (!body['@type'])
     body['@type'] = 'http://data.lblod.info/submission-status-request/Request';
   if (body.authentication) {
-    body.authentication['@id'] = `http://data.lblod.info/authentications/${uuid()}`;
-    body.authentication.configuration['@id'] = `http://data.lblod.info/configurations/${uuid()}`;
-    body.authentication.credentials['@id'] = `http://data.lblod.info/credentials/${uuid()}`;
+    body.authentication[
+      '@id'
+    ] = `http://data.lblod.info/authentications/${uuid()}`;
+    body.authentication.configuration[
+      '@id'
+    ] = `http://data.lblod.info/configurations/${uuid()}`;
+    body.authentication.credentials[
+      '@id'
+    ] = `http://data.lblod.info/credentials/${uuid()}`;
   }
   return body;
 }
