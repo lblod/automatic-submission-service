@@ -249,29 +249,15 @@ async function ensureAuthorisation(store) {
   return organisationID;
 }
 
-async function jsonLdToStore(jsonLdObect) {
-  const requestNQuads = await jsonld.default.toRDF(jsonLdObect, {
-    format: 'application/n-quads',
-  });
-  const parser = new N3.Parser({ format: 'application/n-quads' });
-  const requestRdfjsTriples = parser.parse(requestNQuads);
+async function jsonLdToStore(jsonLdObject) {
+  const requestQuads = await jsonld.default.toRDF(jsonLdObject, {});
   const store = new N3.Store();
-  store.addQuads(requestRdfjsTriples);
+  store.addQuads(requestQuads);
   return store;
 }
 
 async function storeToJsonLd(store, context, frame) {
-  const writer = new N3.Writer({ format: 'application/n-quads' });
-  store.forEach((quad) => writer.addQuad(quad));
-  const ttl = await new Promise((resolve, reject) => {
-    writer.end((error, result) => {
-      if (error) reject(error);
-      else resolve(result);
-    });
-  });
-  const jsonld1 = await jsonld.default.fromRDF(ttl, {
-    format: 'application/n-quads',
-  });
+  const jsonld1 = await jsonld.default.fromRDF([...store], {});
   const framed = await jsonld.default.frame(jsonld1, frame);
   const compacted = await jsonld.default.compact(framed, context);
   return compacted;
