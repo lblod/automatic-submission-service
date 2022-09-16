@@ -7,7 +7,7 @@ import {
 } from 'mu';
 import * as env from './env.js';
 import * as cts from './automatic-submission-flow-tools/constants.js';
-import * as jobsAndTasks from './automatic-submission-flow-tools/jobAndTaskManagement.js';
+import * as jobsAndTasks from './jobAndTaskManagement.js';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
@@ -83,7 +83,7 @@ export async function storeSubmission(
 ) {
   let newAuthConf = {};
   const meldingUri = extractMeldingUri(store);
-  const { jobUri, automaticSubmissionTaskUri } = await jobsAndTasks.startJob(
+  const { job, task } = await jobsAndTasks.startJob(
     submissionGraph,
     meldingUri
   );
@@ -175,26 +175,26 @@ export async function storeSubmission(
 
     await jobsAndTasks.automaticSubmissionTaskSuccess(
       submissionGraph,
-      automaticSubmissionTaskUri,
-      jobUri,
+      task.value,
+      job.value,
       remoteDataUri
     );
 
-    return { submissionUri: meldingUri, jobUri };
+    return { submissionUri: meldingUri, jobUri: job.value };
   } catch (e) {
     console.error(
-      `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${automaticSubmissionTaskUri}.`
+      `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${task.value}.`
     );
     console.error(e.message);
     console.info('Cleaning credentials');
     const errorUri = await sendErrorAlert({
-      message: `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${automaticSubmissionTaskUri}.`,
+      message: `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${task.value}.`,
       detail: e.message,
     });
     await jobsAndTasks.automaticSubmissionTaskFail(
       submissionGraph,
-      automaticSubmissionTaskUri,
-      jobUri,
+      task.value,
+      job.value,
       errorUri
     );
     e.alreadyStoredError = true;

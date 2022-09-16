@@ -20,7 +20,7 @@ import {
   getTaskInfoFromRemoteDataObject,
   downloadTaskUpdate,
 } from './automatic-submission-flow-tools/downloadTaskManagement.js';
-import { getSubmissionStatusRdfJS } from './automatic-submission-flow-tools/jobAndTaskManagement.js';
+import { getSubmissionStatus } from './jobAndTaskManagement.js';
 import { Lock } from 'async-await-mutex-lock';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
@@ -192,10 +192,10 @@ app.post('/status', statusLimiter, async function (req, res) {
     if (!submissionUri)
       throw new Error('There was no submission URI in the request');
 
-    const { statusRdfJSTriples, JobStatusContext, JobStatusFrame } =
-      await getSubmissionStatusRdfJS(submissionUri);
+    const { statusStore, JobStatusContext, JobStatusFrame } =
+      await getSubmissionStatus(submissionUri);
     const jsonLdObject = await storeToJsonLd(
-      statusRdfJSTriples,
+      statusStore,
       JobStatusContext,
       JobStatusFrame
     );
