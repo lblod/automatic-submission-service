@@ -3,7 +3,6 @@ import * as jbt from './automatic-submission-flow-tools/jobs.js';
 import * as tsk from './automatic-submission-flow-tools/tasks.js';
 import { querySudo as query } from '@lblod/mu-auth-sudo';
 import { sparqlEscapeUri } from 'mu';
-import { downloadTaskCreate } from './downloadTaskManagement.js';
 import { SparqlJsonParser } from 'sparqljson-parse';
 import * as N3 from 'n3';
 const { quad, namedNode } = N3.DataFactory;

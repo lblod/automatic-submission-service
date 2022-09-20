@@ -3,7 +3,6 @@ import {
   verifyKeyAndOrganisation,
   storeSubmission,
   isSubmitted,
-  sendErrorAlert,
   cleanseRequestBody,
 } from './support.js';
 import bodyParser from 'body-parser';
@@ -16,6 +15,7 @@ import {
   validateExtractedInfo,
 } from './jsonld-input.js';
 import * as cts from './automatic-submission-flow-tools/constants.js';
+import * as err from './automatic-submission-flow-tools/errors.js';
 import {
   getTaskInfoFromRemoteDataObject,
   downloadTaskUpdate,
@@ -77,12 +77,11 @@ app.post('/melding', async function (req, res) {
         undefined,
         2
       );
-      sendErrorAlert({
-        message:
-          'Something unexpected went wrong while processing an auto-submission request.',
+      await err.create(
+        'Something unexpected went wrong while processing an auto-submission request.',
         detail,
-        reference: e.reference,
-      });
+        e.reference
+      );
     }
     res
       .status(500)
@@ -132,10 +131,10 @@ app.post('/download-status-update', async function (req, res) {
       //Update the status also passing the old status to not make any illegal updates
       let error;
       if (errorMsg)
-        error = await sendErrorAlert({
-          message: 'The requested resource could not be downloaded.',
-          detail: errorMsg,
-        });
+        error = await err.create(
+          'The requested resource could not be downloaded.',
+          errorMsg
+        );
       await downloadTaskUpdate(
         submissionGraph,
         downloadTaskUri,
@@ -144,17 +143,17 @@ app.post('/download-status-update', async function (req, res) {
         remoteDataObjectTriple.object.value,
         remoteDataObjectTriple.subject.value,
         fileUri,
-        error
+        error?.value
       );
     }
     res.status(200).send().end();
   } catch (e) {
     console.error(e.message);
     if (!e.alreadyStoredError)
-      sendErrorAlert({
-        message: 'Could not process a download status update',
-        detail: JSON.stringify({ error: e.message }),
-      });
+      await err.create(
+        'Could not process a download status update',
+        JSON.stringify({ error: e.message })
+      );
     res.status(500).json({
       errors: [
         {
@@ -216,7 +215,7 @@ app.post('/status', statusLimiter, async function (req, res) {
       'Something went wrong while fetching the status of the submitted resource and its associated Job';
     console.error(message, error.message);
     console.error(error);
-    await sendErrorAlert({ message, detail: error.message });
+    await err.create(message, error.message);
     res.status(500).send(`${message}\n${error.message}`);
   }
 });
