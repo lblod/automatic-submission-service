@@ -5,7 +5,6 @@ import {
   sparqlEscapeDateTime,
   sparqlEscapeUri,
 } from 'mu';
-import { downloadTaskCreate } from './downloadTaskManagement.js';
 import * as env from './env.js';
 import * as cts from './automatic-submission-flow-tools/constants.js';
 import * as err from './automatic-submission-flow-tools/errors.js';
@@ -86,7 +85,7 @@ export async function storeSubmission(
 ) {
   let newAuthConf = {};
   const meldingUri = extractMeldingUri(store);
-  const { job, task } = await jobsAndTasks.startJob(
+  const { job, task } = await jobsAndTasks.automaticSubmissionTaskStart(
     submissionGraph,
     meldingUri
   );
@@ -137,7 +136,11 @@ export async function storeSubmission(
       fileGraph
     );
 
-    await downloadTaskCreate(submissionGraph, job.value, remoteDataUri);
+    await jobsAndTasks.downloadTaskCreate(
+      submissionGraph,
+      job.value,
+      remoteDataUri
+    );
 
     await update(`
       ${cts.SPARQL_PREFIXES}

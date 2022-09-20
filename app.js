@@ -17,10 +17,10 @@ import {
 import * as cts from './automatic-submission-flow-tools/constants.js';
 import * as err from './automatic-submission-flow-tools/errors.js';
 import {
+  getSubmissionStatus,
   getTaskInfoFromRemoteDataObject,
   downloadTaskUpdate,
-} from './downloadTaskManagement.js';
-import { getSubmissionStatus } from './jobAndTaskManagement.js';
+} from './jobAndTaskManagement.js';
 import { Lock } from 'async-await-mutex-lock';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
@@ -118,16 +118,10 @@ app.post('/download-status-update', async function (req, res) {
           insert.object.value === cts.DOWNLOAD_STATUSES.failure
       );
     for (const remoteDataObjectTriple of actualStatusChange) {
-      const {
-        downloadTaskUri,
-        jobUri,
-        oldStatus,
-        submissionGraph,
-        fileUri,
-        errorMsg,
-      } = await getTaskInfoFromRemoteDataObject(
-        remoteDataObjectTriple.subject.value
-      );
+      const { task, job, status, submissionGraph, file, errorMsg } =
+        await getTaskInfoFromRemoteDataObject(
+          remoteDataObjectTriple.subject.value
+        );
       //Update the status also passing the old status to not make any illegal updates
       let error;
       if (errorMsg)
@@ -136,13 +130,13 @@ app.post('/download-status-update', async function (req, res) {
           errorMsg
         );
       await downloadTaskUpdate(
-        submissionGraph,
-        downloadTaskUri,
-        jobUri,
-        oldStatus,
+        submissionGraph.value,
+        task.value,
+        job.value,
+        status.value,
         remoteDataObjectTriple.object.value,
         remoteDataObjectTriple.subject.value,
-        fileUri,
+        file?.value,
         error?.value
       );
     }
