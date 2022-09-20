@@ -10,6 +10,7 @@ import * as env from './env.js';
 import * as cts from './automatic-submission-flow-tools/constants.js';
 import * as err from './automatic-submission-flow-tools/errors.js';
 import * as jobsAndTasks from './jobAndTaskManagement.js';
+import * as sjp from 'sparqljson-parse';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
@@ -227,16 +228,19 @@ async function attachClonedAuthenticationConfiguraton(
       }
     }`;
 
-  const authData = parseResult(await query(getInfoQuery))[0];
+  const response = await query(getInfoQuery);
+  const sparqlJsonParser = new sjp.SparqlJsonParser();
+  const authData = sparqlJsonParser.parseJsonResults(response)[0];
+
   const newAuthConf = `http://data.lblod.info/authentications/${uuid()}`;
   const newConf = `http://data.lblod.info/configurations/${uuid()}`;
   const newCreds = `http://data.lblod.info/credentials/${uuid()}`;
 
   let cloneQuery = '';
 
-  if (!authData) {
+  if (!authData?.length) {
     return;
-  } else if (authData.secType === env.BASIC_AUTH) {
+  } else if (authData.secType.value === env.BASIC_AUTH) {
     cloneQuery = `
       ${cts.SPARQL_PREFIXES}
       INSERT {
@@ -245,7 +249,7 @@ async function attachClonedAuthenticationConfiguraton(
             dgftSec:targetAuthenticationConfiguration
               ${sparqlEscapeUri(newAuthConf)} .
         }
-        GRAPH ${sparqlEscapeUri(authData.graph)} {
+        GRAPH ${sparqlEscapeUri(authData.graph.value)} {
           ${sparqlEscapeUri(newAuthConf)}
             dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
           ${sparqlEscapeUri(newCreds)}
@@ -258,18 +262,18 @@ async function attachClonedAuthenticationConfiguraton(
         }
       }
       WHERE {
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
+        ${sparqlEscapeUri(authData.authenticationConfiguration.value)}
           dgftSec:securityConfiguration ?srcConfg.
         ?srcConfg
           ?srcConfP ?srcConfO.
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
+        ${sparqlEscapeUri(authData.authenticationConfiguration.value)}
           dgftSec:secrets ?srcSecrets.
         ?srcSecrets
           meb:username ?user ;
           muAccount:password ?pass .
      }
    `;
-  } else if (authData.secType == env.OAUTH2) {
+  } else if (authData.secType.value == env.OAUTH2) {
     cloneQuery = `
       ${cts.SPARQL_PREFIXES}
       INSERT {
@@ -278,7 +282,7 @@ async function attachClonedAuthenticationConfiguraton(
             dgftSec:targetAuthenticationConfiguration
               ${sparqlEscapeUri(newAuthConf)} .
         }
-        GRAPH ${sparqlEscapeUri(authData.graph)} {
+        GRAPH ${sparqlEscapeUri(authData.graph.value)} {
           ${sparqlEscapeUri(newAuthConf)}
             dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
           ${sparqlEscapeUri(newCreds)}
@@ -291,18 +295,18 @@ async function attachClonedAuthenticationConfiguraton(
         }
       }
       WHERE {
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
+        ${sparqlEscapeUri(authData.authenticationConfiguration.value)}
           dgftSec:securityConfiguration ?srcConfg .
         ?srcConfg
           ?srcConfP ?srcConfO .
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
+        ${sparqlEscapeUri(authData.authenticationConfiguration.value)}
           dgftSec:secrets ?srcSecrets .
         ?srcSecrets
           dgftOauth:clientId ?clientId ;
           dgftOauth:clientSecret ?clientSecret .
      }`;
   } else {
-    throw `Unsupported Security type ${authData.secType}`;
+    throw `Unsupported Security type ${authData.secType.value}`;
   }
 
   await update(cloneQuery);
@@ -327,37 +331,6 @@ async function cleanCredentials(authenticationConfigurationUri) {
      }
    }`;
   await update(cleanQuery);
-}
-
-/**
- * convert results of select query to an array of objects.
- * courtesy: Niels Vandekeybus & Felix
- * @method parseResult
- * @return {Array}
- */
-export function parseResult(result) {
-  if (!(result.results && result.results.bindings.length)) return [];
-
-  const bindingKeys = result.head.vars;
-  return result.results.bindings.map((row) => {
-    const obj = {};
-    bindingKeys.forEach((key) => {
-      if (
-        row[key] &&
-        row[key].datatype == 'http://www.w3.org/2001/XMLSchema#integer' &&
-        row[key].value
-      ) {
-        obj[key] = parseInt(row[key].value);
-      } else if (
-        row[key] &&
-        row[key].datatype == 'http://www.w3.org/2001/XMLSchema#dateTime' &&
-        row[key].value
-      ) {
-        obj[key] = new Date(row[key].value);
-      } else obj[key] = row[key] ? row[key].value : undefined;
-    });
-    return obj;
-  });
 }
 
 export async function verifyKeyAndOrganisation(vendor, key, organisation) {
