@@ -5,6 +5,7 @@
   "dependencies": {
     "@lblod/mu-auth-sudo": "^0.2.0",
     "async-await-mutex-lock": "^1.0.9",
+    "automatic-submission-flow-tools": "file:automatic-submission-flow-tools",
     "express-rate-limit": "^6.6.0",
     "jsonld": "^8.1.0",
     "n3": "^1.16.2",
