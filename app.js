@@ -3,6 +3,10 @@ import { verifyKeyAndOrganisation, storeSubmission, isSubmitted, sendErrorAlert,
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
 import {enrichBody, extractInfoFromTriples, validateExtractedInfo} from "./jsonld-input";
+import { remoteDataObjectStatusChange } from './downloadTaskManagement.js';
+import * as env from './env.js';
+import { getTaskInfoFromRemoteDataObject, downloadTaskUpdate } from './downloadTaskManagement.js';
+import { Lock } from 'async-await-mutex-lock';
 
 app.use(errorHandler);
 // support both jsonld and json content-type
@@ -20,7 +24,7 @@ app.post('/melding', async function (req, res, next) {
     } else {
       const body = req.body;
       console.log("Incoming request on /melding");
-      console.debug(body);
+      //console.debug(body);
 
       // enrich the body with minimum required json LD properties
       await enrichBody(body);
@@ -87,14 +91,17 @@ app.post('/melding', async function (req, res, next) {
       res.status(201).send({uri}).end();
     }
   } catch (e) {
-    const detail = JSON.stringify( {
-      err: e,
-      req: cleanseRequestBody(req.body)
-    }, undefined, 2);
-    sendErrorAlert({
-      message: 'Something unexpected went wrong while processing an auto-submission request.',
-      detail,
-    });
+    console.error(e.message);
+    if (!e.alreadyStoredError) {
+      const detail = JSON.stringify( {
+        err: e.message,
+        req: cleanseRequestBody(req.body)
+      }, undefined, 2);
+      sendErrorAlert({
+        message: 'Something unexpected went wrong while processing an auto-submission request.',
+        detail,
+      });
+    }
     res.status(400).send({
       errors: [{
         title: 'Something unexpected happened while processing the auto-submission request. ' +
@@ -103,3 +110,45 @@ app.post('/melding', async function (req, res, next) {
     }).end();
   }
 });
+
+const lock = new Lock();
+
+app.post('/download-status-update', async function (req, res) {
+  //The locking is needed because the delta-notifier sends the same request twice to this API because a status update is both deleted and inserted. We don't want this; we can't change that for now, so we block such that no 2 requests are handled at the same time and then limit the way status changes can be performed.
+  await lock.acquire();
+  try {
+    //Because the delta-notifier is lazy/incompetent we need a lot more filtering before we actually know that a resource's status has been set to ongoing
+    const actualStatusChange = req.body
+      .map((changeset) => changeset.inserts)
+      .filter((inserts) => inserts.length > 0)
+      .flat()
+      .filter((insert) => insert.predicate.value === env.ADMS_STATUS_PREDICATE)
+      .filter((insert) => insert.object.value === env.DOWNLOAD_STATUSES.ongoing ||
+                          insert.object.value === env.DOWNLOAD_STATUSES.success ||
+                          insert.object.value === env.DOWNLOAD_STATUSES.failure);
+    for (const remoteDataObjectTriple of actualStatusChange) {
+      const { downloadTaskUri, jobUri, oldStatus, submissionGraph, fileUri, errorMsg } = await getTaskInfoFromRemoteDataObject(remoteDataObjectTriple.subject.value);
+      //Update the status also passing the old status to not make any illegal updates
+      await downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldStatus, remoteDataObjectTriple.object.value, remoteDataObjectTriple.subject.value, fileUri, errorMsg);
+    }
+    res.status(200).send().end();
+  }
+  catch (e) {
+    console.error(e.message);
+    if (!e.alreadyStoredError)
+      sendErrorAlert({
+        message: 'Could not process a download status update' ,
+        detail: JSON.stringify({ error: e.message, }),
+      });
+    res.status(500).json({
+      errors: [{
+        title: "An error occured while updating the staus of a downloaded file",
+        error: JSON.stringify(e),
+      }]
+    });
+  }
+  finally {
+    lock.release();
+  }
+});
+
