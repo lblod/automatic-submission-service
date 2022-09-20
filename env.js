@@ -4,9 +4,6 @@ export const AUTOMATIC_SUBMISSION_JSON_LD_CONTEXT_ENDPOINT =
   process.env.AUTOMATIC_SUBMISSION_JSON_LD_CONTEXT_ENDPOINT ||
   'https://lblod.data.gift/contexts/automatische-melding/v1/context.json';
 
-export const CREATOR =
-  'http://lblod.data.gift/services/automatic-submission-service';
-
 export const BASIC_AUTH =
   'https://www.w3.org/2019/wot/security#BasicSecurityScheme';
 export const OAUTH2 =

@@ -19,7 +19,7 @@ import * as cts from './automatic-submission-flow-tools/constants.js';
 import {
   getTaskInfoFromRemoteDataObject,
   downloadTaskUpdate,
-} from './automatic-submission-flow-tools/downloadTaskManagement.js';
+} from './downloadTaskManagement.js';
 import { getSubmissionStatus } from './jobAndTaskManagement.js';
 import { Lock } from 'async-await-mutex-lock';
 import * as N3 from 'n3';
@@ -104,6 +104,11 @@ app.post('/download-status-update', async function (req, res) {
       .map((changeset) => changeset.inserts)
       .filter((inserts) => inserts.length > 0)
       .flat()
+      .filter((insert) =>
+        /http:\/\/data.lblod.info\/id\/remote-data-objects\//.test(
+          insert.subject.value
+        )
+      )
       .filter(
         (insert) => insert.predicate.value === cts.PREDICATE_TABLE.adms_status
       )
@@ -125,6 +130,12 @@ app.post('/download-status-update', async function (req, res) {
         remoteDataObjectTriple.subject.value
       );
       //Update the status also passing the old status to not make any illegal updates
+      let error;
+      if (errorMsg)
+        error = await sendErrorAlert({
+          message: 'The requested resource could not be downloaded.',
+          detail: errorMsg,
+        });
       await downloadTaskUpdate(
         submissionGraph,
         downloadTaskUri,
@@ -133,7 +144,7 @@ app.post('/download-status-update', async function (req, res) {
         remoteDataObjectTriple.object.value,
         remoteDataObjectTriple.subject.value,
         fileUri,
-        errorMsg
+        error
       );
     }
     res.status(200).send().end();

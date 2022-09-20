@@ -7,6 +7,7 @@ import {
 } from 'mu';
 import * as env from './env.js';
 import * as cts from './automatic-submission-flow-tools/constants.js';
+import * as err from './automatic-submission-flow-tools/errors.js';
 import * as jobsAndTasks from './jobAndTaskManagement.js';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
@@ -144,7 +145,7 @@ export async function storeSubmission(
             rpioHttp:requestHeader <http://data.lblod.info/request-headers/accept/text/html>;
             mu:uuid ${sparqlEscapeString(remoteDataId)};
             nie:url ${sparqlEscapeUri(locationUrl)};
-            dct:creator ${sparqlEscapeUri(env.CREATOR)};
+            dct:creator ${sparqlEscapeUri(cts.SERVICES.automaticSubmission)};
             adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
             dct:created ${timestampSparql};
             dct:modified ${timestampSparql}.
@@ -187,15 +188,15 @@ export async function storeSubmission(
     );
     console.error(e.message);
     console.info('Cleaning credentials');
-    const errorUri = await sendErrorAlert({
-      message: `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${task.value}.`,
-      detail: e.message,
-    });
+    const error = await err.create(
+      `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${task.value}.`,
+      e.message
+    );
     await jobsAndTasks.automaticSubmissionTaskFail(
       submissionGraph,
       task.value,
       job.value,
-      errorUri
+      error.value
     );
     e.alreadyStoredError = true;
     if (authenticationConfiguration)
@@ -379,45 +380,4 @@ export function cleanseRequestBody(body) {
   delete cleansed.authentication;
   delete cleansed.publisher.key;
   return cleansed;
-}
-
-export async function sendErrorAlert({ message, detail, reference }) {
-  if (!message) throw 'Error needs a message describing what went wrong.';
-  const id = uuid();
-  const uri = `http://data.lblod.info/errors/${id}`;
-  const referenceTriple = reference
-    ? `${sparqlEscapeUri(uri)}
-         dct:references ${sparqlEscapeUri(reference)} .`
-    : '';
-  const detailTriple = detail
-    ? `${sparqlEscapeUri(uri)}
-         oslc:largePreview ${sparqlEscapeString(detail)} .`
-    : '';
-  const q = `
-    PREFIX mu:   <http://mu.semte.ch/vocabularies/core/>
-    PREFIX oslc: <http://open-services.net/ns/core#>      
-    PREFIX dct:  <http://purl.org/dc/terms/>
-    PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
-    
-    INSERT DATA {
-      GRAPH <http://mu.semte.ch/graphs/error> {
-        ${sparqlEscapeUri(uri)}
-          a oslc:Error ;
-          mu:uuid ${sparqlEscapeString(id)} ;
-          dct:subject ${sparqlEscapeString('Automatic Submission Service')} ;
-          oslc:message ${sparqlEscapeString(message)} ;
-          dct:created ${sparqlEscapeDateTime(new Date().toISOString())} ;
-          dct:creator ${sparqlEscapeUri(env.CREATOR)} .
-        ${referenceTriple}
-        ${detailTriple}
-      }
-    }`;
-  try {
-    await update(q);
-    return uri;
-  } catch (e) {
-    console.warn(
-      `[WARN] Something went wrong while trying to store an error.\nMessage: ${e}\nQuery: ${q}`
-    );
-  }
 }
