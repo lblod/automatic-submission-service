@@ -5,6 +5,7 @@ import {
   sparqlEscapeDateTime,
   sparqlEscapeUri,
 } from 'mu';
+import { downloadTaskCreate } from './downloadTaskManagement.js';
 import * as env from './env.js';
 import * as cts from './automatic-submission-flow-tools/constants.js';
 import * as err from './automatic-submission-flow-tools/errors.js';
@@ -134,6 +135,8 @@ export async function storeSubmission(
       meldingUri,
       fileGraph
     );
+
+    await downloadTaskCreate(submissionGraph, job.value, remoteDataUri);
 
     await update(`
       ${cts.SPARQL_PREFIXES}

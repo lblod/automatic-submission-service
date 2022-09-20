@@ -127,7 +127,6 @@ export async function automaticSubmissionTaskSuccess(
     namedNode(cts.SERVICES.automaticSubmission),
     { remoteDataObjects: [namedNode(remoteDataObjectUri)] }
   );
-  return downloadTaskCreate(submissionGraph, jobUri, remoteDataObjectUri);
 }
 
 export async function automaticSubmissionTaskFail(
