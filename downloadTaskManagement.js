@@ -1,45 +1,26 @@
 import * as cts from './automatic-submission-flow-tools/constants.js';
-import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
+import { updateSudo as update } from '@lblod/mu-auth-sudo';
 import { sparqlEscapeUri } from 'mu';
 import * as tsk from './automatic-submission-flow-tools/tasks.js';
-import * as jbt from './automatic-submission-flow-tools/jobs.js';
-import * as sjp from 'sparqljson-parse';
+import * as jbt from './automatic-submission-flow-tools/asfJobs.js';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
 export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
-  const remoteDataObjectUriSparql = sparqlEscapeUri(remoteDataObjectUri);
-  //NOTE this query is rather fragile, relying on the links between melding, job and task via non-documented properties, made by the download-url-service
-  const taskQuery = `
-    ${cts.SPARQL_PREFIXES}
-    SELECT ?task ?job ?oldStatus ?submissionGraph ?fileUri ?errorMsg WHERE {
-      ?melding nie:hasPart ${remoteDataObjectUriSparql} .
-      GRAPH ?submissionGraph {
-        ?job prov:generatedBy ?melding .
-        ?task
-          dct:isPartOf ?job ;
-          task:operation tasko:download ;
-          adms:status ?oldStatus .
-      }
-      OPTIONAL { ?fileUri nie:dataSource ${remoteDataObjectUriSparql} . }
-      OPTIONAL { ${remoteDataObjectUriSparql} ext:cacheError ?errorMsg . }
-    }
-    LIMIT 1`;
-  const response = await query(taskQuery);
-  const sparqlJsonParser = new sjp.SparqlJsonParser();
-  const parsedResults = sparqlJsonParser.parseJsonResults(response);
-  if (parsedResults.length === 0)
+  const infoObject = await tsk.getTaskInfoFromRemoteDataObject(
+    namedNode(remoteDataObjectUri)
+  );
+  if (!infoObject)
     throw new Error(
       `Could not find task and other necessary related information for remote data object ${remoteDataObjectUri}.`
     );
-  const result = parsedResults[0];
   return {
-    downloadTaskUri: result.task.value,
-    jobUri: result.job.value,
-    oldStatus: result.oldStatus.value,
-    submissionGraph: result.submissionGraph.value,
-    fileUri: result.fileUri?.value,
-    errorMsg: result.errorMsg?.value,
+    downloadTaskUri: infoObject.task.value,
+    jobUri: infoObject.job.value,
+    oldStatus: infoObject.status.value,
+    submissionGraph: infoObject.submissionGraph.value,
+    fileUri: infoObject.file?.value,
+    errorMsg: infoObject.errorMsg?.value,
   };
 }
 

@@ -1,5 +1,5 @@
 import * as cts from './automatic-submission-flow-tools/constants.js';
-import * as jbt from './automatic-submission-flow-tools/jobs.js';
+import * as jbt from './automatic-submission-flow-tools/asfJobs.js';
 import * as tsk from './automatic-submission-flow-tools/tasks.js';
 import { querySudo as query } from '@lblod/mu-auth-sudo';
 import { sparqlEscapeUri } from 'mu';
