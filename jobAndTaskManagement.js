@@ -117,7 +117,7 @@ export async function automaticSubmissionTaskStart(graphUri, meldingUri) {
     0,
     job,
     undefined,
-    namedNode(cts.COGS_OPERATION.transformation),
+    namedNode(cts.COGS_OPERATIONS.transformation),
     graph
   );
   return { job, task };
@@ -266,7 +266,7 @@ export async function downloadTaskCreate(
     1,
     namedNode(jobUri),
     { remoteDataObjects: [namedNode(remoteDataObjectUri)] },
-    namedNode(cts.COGS_OPERATION.webServiceLookup),
+    namedNode(cts.COGS_OPERATIONS.webServiceLookup),
     namedNode(submissionGraph)
   );
   return downloadTask;
