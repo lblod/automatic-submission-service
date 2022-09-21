@@ -16,6 +16,7 @@ import {
 } from './jsonld-input.js';
 import * as cts from './automatic-submission-flow-tools/constants.js';
 import * as err from './automatic-submission-flow-tools/errors.js';
+import * as del from './automatic-submission-flow-tools/deltas.js';
 import {
   getSubmissionStatus,
   getTaskInfoFromRemoteDataObject,
@@ -99,24 +100,18 @@ app.post('/download-status-update', async function (req, res) {
   await lock.acquire();
   try {
     //Because the delta-notifier is lazy/incompetent we need a lot more filtering before we actually know that a resource's status has been set to ongoing
-    const actualStatusChange = req.body
-      .map((changeset) => changeset.inserts)
-      .filter((inserts) => inserts.length > 0)
-      .flat()
-      .filter((insert) =>
+    const actualStatusChange = del.getSubjectsWithFunctions(
+      req.body,
+      (insert) =>
         /http:\/\/data.lblod.info\/id\/remote-data-objects\//.test(
           insert.subject.value
-        )
-      )
-      .filter(
-        (insert) => insert.predicate.value === cts.PREDICATE_TABLE.adms_status
-      )
-      .filter(
-        (insert) =>
-          insert.object.value === cts.DOWNLOAD_STATUSES.ongoing ||
-          insert.object.value === cts.DOWNLOAD_STATUSES.success ||
-          insert.object.value === cts.DOWNLOAD_STATUSES.failure
-      );
+        ),
+      (insert) => insert.predicate.value === cts.PREDICATE_TABLE.adms_status,
+      (insert) =>
+        insert.object.value === cts.DOWNLOAD_STATUSES.ongoing ||
+        insert.object.value === cts.DOWNLOAD_STATUSES.success ||
+        insert.object.value === cts.DOWNLOAD_STATUSES.failure
+    );
     for (const remoteDataObjectTriple of actualStatusChange) {
       const { task, job, status, submissionGraph, file, errorMsg } =
         await getTaskInfoFromRemoteDataObject(
