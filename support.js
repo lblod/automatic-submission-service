@@ -241,7 +241,7 @@ async function attachClonedAuthenticationConfiguraton(
 
   let cloneQuery = '';
 
-  if (!authData?.length) {
+  if (!authData) {
     return;
   } else if (authData.secType.value === env.BASIC_AUTH) {
     cloneQuery = `

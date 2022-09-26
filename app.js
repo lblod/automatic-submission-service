@@ -63,7 +63,7 @@ app.post('/melding', async function (req, res) {
     const { submissionUri, jobUri } = await storeSubmission(
       store,
       submissionGraph,
-      submissionGraph,
+      submissionGraph, //NOTE COULD BE DIFFERENT filesGraph
       authenticationConfiguration
     );
     res.status(201).send({ submission: submissionUri, job: jobUri }).end();
@@ -100,7 +100,7 @@ app.post('/download-status-update', async function (req, res) {
   await lock.acquire();
   try {
     //Because the delta-notifier is lazy/incompetent we need a lot more filtering before we actually know that a resource's status has been set to ongoing
-    const actualStatusChange = del.getSubjectsWithFunctions(
+    const actualStatusChange = del.getTriplesWithFunctions(
       req.body,
       (insert) =>
         /http:\/\/data.lblod.info\/id\/remote-data-objects\//.test(
