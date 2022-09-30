@@ -3,8 +3,8 @@
   "version": "0.12.1",
   "description": "Microservice providing an API for external parties to process inzendingen voor toezicht.",
   "dependencies": {
-    "@lblod/mu-auth-sudo": "^0.2.0",
-    "async-await-mutex-lock": "^1.0.9",
+    "@lblod/mu-auth-sudo": "^0.6.0",
+    "async-await-mutex-lock": "^1.0.10",
     "automatic-submission-flow-tools": "file:automatic-submission-flow-tools",
     "express-rate-limit": "^6.6.0",
     "jsonld": "^8.1.0",
@@ -14,7 +14,7 @@
     "uuid": "^9.0.0"
   },
   "devDependencies": {
-    "eslint": "^8.23.1",
+    "eslint": "^8.24.0",
     "eslint-config-prettier": "^8.5.0",
     "eslint-plugin-prettier": "^4.2.1",
     "prettier": "^2.7.1"
