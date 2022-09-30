@@ -79,6 +79,7 @@ app.post('/melding', async function (req, res) {
         2
       );
       await err.create(
+        namedNode(cts.SERVICES.automaticSubmission),
         'Something unexpected went wrong while processing an auto-submission request.',
         detail,
         e.reference
@@ -121,6 +122,7 @@ app.post('/download-status-update', async function (req, res) {
       let error;
       if (errorMsg)
         error = await err.create(
+          namedNode(cts.SERVICES.automaticSubmission),
           'The requested resource could not be downloaded.',
           errorMsg
         );
@@ -140,6 +142,7 @@ app.post('/download-status-update', async function (req, res) {
     console.error(e.message);
     if (!e.alreadyStoredError)
       await err.create(
+        namedNode(cts.SERVICES.automaticSubmission),
         'Could not process a download status update',
         JSON.stringify({ error: e.message })
       );
@@ -204,7 +207,11 @@ app.post('/status', statusLimiter, async function (req, res) {
       'Something went wrong while fetching the status of the submitted resource and its associated Job';
     console.error(message, error.message);
     console.error(error);
-    await err.create(message, error.message);
+    await err.create(
+      namedNode(cts.SERVICES.automaticSubmission),
+      message,
+      error.message
+    );
     res.status(500).send(`${message}\n${error.message}`);
   }
 });

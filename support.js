@@ -196,6 +196,7 @@ export async function storeSubmission(
     console.error(e.message);
     console.info('Cleaning credentials');
     const error = await err.create(
+      namedNode(cts.SERVICES.automaticSubmission),
       `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${task.value}.`,
       e.message
     );
