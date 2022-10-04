@@ -9,7 +9,7 @@
     "express-rate-limit": "^6.6.0",
     "jsonld": "^8.1.0",
     "n3": "^1.16.2",
-    "rdf-string-ttl": "^1.2.0",
+    "rdf-string-ttl": "github:benjay10/rdf-string-ttl.js",
     "sparqljson-parse": "^2.1.1",
     "uuid": "^9.0.0"
   },
