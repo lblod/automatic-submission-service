@@ -1,5 +1,5 @@
 import { uuid } from 'mu';
-import * as env from './env.js';
+import * as cts from './automatic-submission-flow-tools/constants.js';
 import { SubmissionRegistrationContext } from './SubmissionRegistrationContext.js';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
@@ -23,7 +23,7 @@ export async function enrichBodyForRegister(originalBody) {
   }
   if (!originalBody.status) {
     // concept status by default
-    originalBody.status = env.CONCEPT_STATUS;
+    originalBody.status = cts.SUBMISSION_STATUSES.concept;
   }
   if (originalBody.authentication) {
     originalBody.authentication[
@@ -114,7 +114,10 @@ export function extractAuthentication(store) {
 export function validateExtractedInfo(extracted) {
   const { status } = extracted;
   const errors = [];
-  if (status !== env.CONCEPT_STATUS && status !== env.SUBMITTABLE_STATUS)
+  if (
+    status !== cts.SUBMISSION_STATUSES.concept &&
+    status !== cts.SUBMISSION_STATUSES.submittable
+  )
     errors.push({ message: 'Property status is not valid.' });
 
   return { isValid: errors.length === 0, errors };

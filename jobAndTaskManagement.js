@@ -1,71 +1,15 @@
-import * as env from './env.js';
-import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
-import {
-  uuid,
-  sparqlEscapeString,
-  sparqlEscapeDateTime,
-  sparqlEscapeUri,
-} from 'mu';
-import { downloadTaskCreate } from './downloadTaskManagement.js';
+import * as cts from './automatic-submission-flow-tools/constants.js';
+import * as jbt from './automatic-submission-flow-tools/asfJobs.js';
+import * as tsk from './automatic-submission-flow-tools/asfTasks.js';
+import { querySudo as query, querySudo as update } from '@lblod/mu-auth-sudo';
+import { sparqlEscapeUri } from 'mu';
 import { SparqlJsonParser } from 'sparqljson-parse';
 import * as N3 from 'n3';
-const { quad } = N3.DataFactory;
+const { quad, namedNode } = N3.DataFactory;
 
-export async function startJob(submissionGraph, meldingUri) {
-  try {
-    const jobUuid = uuid();
-    const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
-    // Make a cogs:Job for the whole process
-    // The prov:generated is strictly not necessary for the model, maybe nice to have
-    const jobQuery = `
-      ${env.PREFIXES}
-      INSERT DATA {
-        GRAPH ${sparqlEscapeUri(submissionGraph)} {
-          asj:${jobUuid}
-            a cogs:Job ;
-            mu:uuid ${sparqlEscapeString(jobUuid)} ;
-            dct:creator services:automatic-submission-service ;
-            adms:status js:busy ;
-            dct:created ${nowSparql} ;
-            dct:modified ${nowSparql} ;
-            task:cogsOperation cogs:TransformationProcess ;
-            task:operation jobo:automaticSubmissionFlow ;
-            prov:generated ${sparqlEscapeUri(meldingUri)} .
-        }
-      }
-    `;
-    await update(jobQuery);
-
-    // Create a task for the automatic submission as the first step in the flow
-    const submissionTaskUuid = uuid();
-    const submissionTaskQuery = `
-      ${env.PREFIXES}
-      INSERT DATA {
-        GRAPH ${sparqlEscapeUri(submissionGraph)} {
-          asj:${submissionTaskUuid}
-            a task:Task ;
-            mu:uuid ${sparqlEscapeString(submissionTaskUuid)} ;
-            adms:status js:busy ;
-            dct:created ${nowSparql} ;
-            dct:modified ${nowSparql} ;
-            task:cogsOperation cogs:TransformationProcess ;
-            task:operation tasko:register ;
-            dct:creator services:automatic-submission-service ;
-            task:index "0" ;
-            dct:isPartOf asj:${jobUuid} .
-        }
-      }
-    `;
-    await update(submissionTaskQuery);
-
-    const jobUri = env.JOB_PREFIX.concat(jobUuid);
-    const automaticSubmissionTaskUri =
-      env.JOB_PREFIX.concat(submissionTaskUuid);
-    return { jobUri, automaticSubmissionTaskUri };
-  } catch (e) {
-    console.error(e);
-  }
-}
+///////////////////////////////////////////////////////////////////////////////
+// Submission Status
+///////////////////////////////////////////////////////////////////////////////
 
 const JobStatusContext = {
   cogs: 'http://vocab.deri.ie/cogs#',
@@ -128,48 +72,55 @@ const JobStatusFrame = {
     '@embed': '@always',
   },
 };
-export async function getSubmissionStatusRdfJS(submissionUri) {
+export async function getSubmissionStatus(submissionUri) {
+  const submission = namedNode(submissionUri);
+  const store = await jbt.getStatusFromActivity(submission);
   const response = await query(`
-    ${env.PREFIXES}
+    ${cts.SPARQL_PREFIXES}
     CONSTRUCT {
-      ?job
-        a cogs:Job ;
-        adms:status ?jobStatus ;
-        prov:generated ?submission ;
-        task:error ?error.
       ${sparqlEscapeUri(submissionUri)}
         rdf:type meb:Submission ;
         adms:status ?submissionStatus .
-      ?error
-        a oslc:Error ;
-        oslc:message ?message .
     }
     WHERE {
       ${sparqlEscapeUri(submissionUri)}
         rdf:type meb:Submission ;
         adms:status ?submissionStatus .
-      ?job
-        a cogs:Job ;
-        dct:creator services:automatic-submission-service ;
-        adms:status ?jobStatus ;
-        task:cogsOperation cogs:TransformationProcess ;
-        task:operation jobo:automaticSubmissionFlow ;
-        prov:generated ?submission .
-      OPTIONAL {
-        ?job
-          task:error ?error .
-        ?error
-          a oslc:Error ;
-          oslc:message ?message .
-      }
     }
   `);
   const sparqlJsonParser = new SparqlJsonParser();
   const parsedResults = sparqlJsonParser.parseJsonResults(response);
-  const statusRdfJSTriples = parsedResults.map((binding) =>
-    quad(binding.s, binding.p, binding.o)
+  parsedResults.forEach((binding) =>
+    store.addQuad(quad(binding.s, binding.p, binding.o))
   );
-  return { statusRdfJSTriples, JobStatusContext, JobStatusFrame };
+  return { statusStore: store, JobStatusContext, JobStatusFrame };
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Register Tasks
+///////////////////////////////////////////////////////////////////////////////
+
+export async function automaticSubmissionTaskStart(graphUri, meldingUri) {
+  const creator = namedNode(cts.SERVICES.automaticSubmission);
+  const graph = namedNode(graphUri);
+  // First make a cogs:Job for the whole process
+  const job = await jbt.create(
+    namedNode(meldingUri),
+    namedNode(cts.SERVICES.automaticSubmission),
+    graph
+  );
+  // Create a task for the automatic submission as the first step in the flow
+  const task = await tsk.create(
+    namedNode(cts.OPERATIONS.register),
+    creator,
+    namedNode(cts.TASK_STATUSES.busy),
+    0,
+    job,
+    undefined,
+    namedNode(cts.COGS_OPERATIONS.transformation),
+    graph
+  );
+  return { job, task };
 }
 
 export async function automaticSubmissionTaskSuccess(
@@ -178,50 +129,12 @@ export async function automaticSubmissionTaskSuccess(
   jobUri,
   remoteDataObjectUri
 ) {
-  const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
-  const automaticSubmissionTaskUriSparql = sparqlEscapeUri(
-    automaticSubmissionTaskUri
+  await tsk.updateStatus(
+    namedNode(automaticSubmissionTaskUri),
+    namedNode(cts.TASK_STATUSES.success),
+    namedNode(cts.SERVICES.automaticSubmission),
+    { remoteDataObjects: [namedNode(remoteDataObjectUri)] }
   );
-  const resultContainerUuid = uuid();
-  const harvestingCollectionUuid = uuid();
-  const assTaskQuery = `
-    ${env.PREFIXES}
-    DELETE {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-        ${automaticSubmissionTaskUriSparql}
-          adms:status ?oldStatus ;
-          dct:modified ?oldModified .
-      }
-    }
-    INSERT {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-        ${automaticSubmissionTaskUriSparql}
-          adms:status js:success ;
-          dct:modified ${nowSparql} ;
-          task:resultsContainer asj:${resultContainerUuid} .
-
-        asj:${resultContainerUuid}
-          a nfo:DataContainer ;
-          mu:uuid ${sparqlEscapeString(resultContainerUuid)} ;
-          task:hasHarvestingCollection asj:${harvestingCollectionUuid} .
-
-        asj:${harvestingCollectionUuid}
-          a hrvst:HarvestingCollection ;
-          dct:creator services:automatic-submission-service ;
-          dct:hasPart ${sparqlEscapeUri(remoteDataObjectUri)} .
-      }
-    }
-    WHERE {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-        ${automaticSubmissionTaskUriSparql}
-          adms:status ?oldStatus ;
-          dct:modified ?oldModified .
-      }
-    }
-  `;
-  await update(assTaskQuery);
-
-  return downloadTaskCreate(submissionGraph, jobUri, remoteDataObjectUri);
 }
 
 export async function automaticSubmissionTaskFail(
@@ -230,64 +143,166 @@ export async function automaticSubmissionTaskFail(
   jobUri,
   errorUri
 ) {
-  const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
-  const automaticSubmissionTaskUriSparql = sparqlEscapeUri(
-    automaticSubmissionTaskUri
+  const status = namedNode(cts.JOB_STATUSES.failed);
+  const error = namedNode(errorUri);
+  //Set the task to failed
+  await tsk.updateStatus(
+    namedNode(automaticSubmissionTaskUri),
+    status,
+    namedNode(cts.SERVICES.automaticSubmission),
+    undefined,
+    error
   );
-  const errorUriSparql = sparqlEscapeUri(errorUri);
-  const assTaskQuery = `
-    ${env.PREFIXES}
-    DELETE {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-        ${automaticSubmissionTaskUriSparql}
-          adms:status ?oldStatus ;
-          dct:modified ?oldModified .
-      }
-    }
+  //Also set the job to failure
+  await jbt.updateStatus(namedNode(jobUri), status, error);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Files
+///////////////////////////////////////////////////////////////////////////////
+
+//TODO in the future: maybe remove if better implemented in download-url-service
+//The download-url-service is not very good at putting the metadata of a file in the correct place.
+//The physical file gets al the metadata and the logical file (which is a remote data object) does not get additional file related metadata.
+//We can just copy the metadata from the physical file to the logical file.
+async function complementLogicalFileMetaData(
+  submissionGraph,
+  physicalFileUri,
+  logicalFileUri
+) {
+  const submissionGraphSparql = sparqlEscapeUri(submissionGraph);
+  return update(`
+    ${cts.SPARQL_PREFIXES}
     INSERT {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-        ${automaticSubmissionTaskUriSparql}
-          adms:status js:failed ;
-          dct:modified ${nowSparql} ;
-          task:error ${errorUriSparql} .
+      GRAPH ${submissionGraphSparql} {
+        ${sparqlEscapeUri(logicalFileUri)}
+          a nfo:FileDataObject ;
+          nfo:fileName ?filename ;
+          dct:format ?format ;
+          nfo:fileSize ?fileSize ;
+          dbpedia:fileExtension ?fileExtension ;
+          dct:created ?created .
       }
     }
     WHERE {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-        ${automaticSubmissionTaskUriSparql}
-          adms:status ?oldStatus ;
-          dct:modified ?oldModified .
+      GRAPH ${submissionGraphSparql} {
+        ${sparqlEscapeUri(physicalFileUri)}
+          a nfo:FileDataObject ;
+          nfo:fileName ?filename ;
+          dct:format ?format ;
+          nfo:fileSize ?fileSize ;
+          dbpedia:fileExtension ?fileExtension ;
+          dct:created ?created .
       }
     }
-  `;
-  await update(assTaskQuery);
+  `);
+}
+
+///////////////////////////////////////////////////////////////////////////////
+// Download Tasks
+///////////////////////////////////////////////////////////////////////////////
+
+export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
+  const infoObject = await tsk.getTaskInfoFromRemoteDataObject(
+    namedNode(remoteDataObjectUri)
+  );
+  if (!infoObject)
+    throw new Error(
+      `Could not find task and other necessary related information for remote data object ${remoteDataObjectUri}.`
+    );
+  return infoObject;
+}
+
+export async function downloadTaskUpdate(
+  submissionGraph,
+  downloadTaskUri,
+  jobUri,
+  oldASSStatus,
+  newDLStatus,
+  logicalFileUri,
+  physicalFileUri,
+  errorMsg
+) {
+  switch (newDLStatus) {
+    case cts.DOWNLOAD_STATUSES.ongoing:
+      if (oldASSStatus === cts.TASK_STATUSES.scheduled)
+        return downloadStarted(downloadTaskUri);
+      break;
+    case cts.DOWNLOAD_STATUSES.success:
+      if (
+        oldASSStatus === cts.TASK_STATUSES.scheduled ||
+        oldASSStatus === cts.TASK_STATUSES.busy
+      ) {
+        await complementLogicalFileMetaData(
+          submissionGraph,
+          physicalFileUri,
+          logicalFileUri
+        );
+        return downloadSuccess(downloadTaskUri, logicalFileUri);
+      }
+      break;
+    case cts.DOWNLOAD_STATUSES.failure:
+      if (
+        oldASSStatus === cts.TASK_STATUSES.busy ||
+        oldASSStatus === cts.TASK_STATUSES.scheduled
+      )
+        return downloadFail(downloadTaskUri, jobUri, logicalFileUri, errorMsg);
+      break;
+  }
+  throw new Error(
+    `Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`
+  );
+}
+
+export async function downloadTaskCreate(
+  submissionGraph,
+  jobUri,
+  remoteDataObjectUri
+) {
+  const downloadTask = await tsk.create(
+    namedNode(cts.OPERATIONS.download),
+    namedNode(cts.SERVICES.automaticSubmission),
+    namedNode(cts.TASK_STATUSES.scheduled),
+    1,
+    namedNode(jobUri),
+    { remoteDataObjects: [namedNode(remoteDataObjectUri)] },
+    namedNode(cts.COGS_OPERATIONS.webServiceLookup),
+    namedNode(submissionGraph)
+  );
+  return downloadTask;
+}
+
+async function downloadStarted(downloadTaskUri) {
+  await tsk.updateStatus(
+    namedNode(downloadTaskUri),
+    namedNode(cts.TASK_STATUSES.busy),
+    namedNode(cts.SERVICES.automaticSubmission)
+  );
+}
+
+async function downloadSuccess(downloadTaskUri, logicalFileUri) {
+  await tsk.updateStatus(
+    namedNode(downloadTaskUri),
+    namedNode(cts.TASK_STATUSES.success),
+    namedNode(cts.SERVICES.automaticSubmission),
+    { files: [namedNode(logicalFileUri)] }
+  );
+}
+
+async function downloadFail(downloadTaskUri, jobUri, logicalFileUri, error) {
+  //Set task to failure
+  await tsk.updateStatus(
+    namedNode(downloadTaskUri),
+    namedNode(cts.TASK_STATUSES.success),
+    namedNode(cts.SERVICES.automaticSubmission),
+    { files: [namedNode(logicalFileUri)] },
+    namedNode(error)
+  );
 
   //Also set the job to failure
-  const jobUriSparql = sparqlEscapeUri(jobUri);
-  const assJobQuery = `
-    ${env.PREFIXES}
-    DELETE {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-        ${jobUriSparql}
-          adms:status ?oldStatus ;
-          dct:modified ?oldModified .
-      }
-    }
-    INSERT {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-        ${jobUriSparql}
-          adms:status js:failed ;
-          dct:modified ${nowSparql} ;
-          task:error ${errorUriSparql} .
-      }
-    }
-    WHERE {
-      GRAPH ${sparqlEscapeUri(submissionGraph)} {
-        ${jobUriSparql}
-          adms:status ?oldStatus ;
-          dct:modified ?oldModified .
-      }
-    }
-  `;
-  await update(assJobQuery);
+  await jbt.updateStatus(
+    namedNode(jobUri),
+    namedNode(cts.JOB_STATUSES.failed),
+    error
+  );
 }

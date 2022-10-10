@@ -6,7 +6,10 @@ import {
   sparqlEscapeUri,
 } from 'mu';
 import * as env from './env.js';
+import * as cts from './automatic-submission-flow-tools/constants.js';
+import * as err from './automatic-submission-flow-tools/errors.js';
 import * as jobsAndTasks from './jobAndTaskManagement.js';
+import * as sjp from 'sparqljson-parse';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
@@ -82,7 +85,7 @@ export async function storeSubmission(
 ) {
   let newAuthConf = {};
   const meldingUri = extractMeldingUri(store);
-  const { jobUri, automaticSubmissionTaskUri } = await jobsAndTasks.startJob(
+  const { job, task } = await jobsAndTasks.automaticSubmissionTaskStart(
     submissionGraph,
     meldingUri
   );
@@ -90,7 +93,7 @@ export async function storeSubmission(
     const submittedResource = findSubmittedResource(store);
     const turtle = await storeToTurtle(store);
     await update(`
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT DATA {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
            ${turtle}
@@ -100,7 +103,7 @@ export async function storeSubmission(
       }`);
     //TODO: Is this following query really necessary? A submission always gets a uuid whith enrichBody so this query seems redundant.
     await update(`
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
           ${sparqlEscapeUri(submittedResource)}
@@ -133,8 +136,14 @@ export async function storeSubmission(
       fileGraph
     );
 
+    await jobsAndTasks.downloadTaskCreate(
+      submissionGraph,
+      job.value,
+      remoteDataUri
+    );
+
     await update(`
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT DATA {
         GRAPH ${sparqlEscapeUri(fileGraph)} {
           ${sparqlEscapeUri(remoteDataUri)}
@@ -143,7 +152,7 @@ export async function storeSubmission(
             rpioHttp:requestHeader <http://data.lblod.info/request-headers/accept/text/html>;
             mu:uuid ${sparqlEscapeString(remoteDataId)};
             nie:url ${sparqlEscapeUri(locationUrl)};
-            dct:creator ${sparqlEscapeUri(env.CREATOR)};
+            dct:creator ${sparqlEscapeUri(cts.SERVICES.automaticSubmission)};
             adms:status <http://lblod.data.gift/file-download-statuses/ready-to-be-cached>;
             dct:created ${timestampSparql};
             dct:modified ${timestampSparql}.
@@ -162,7 +171,7 @@ export async function storeSubmission(
 
     //update created-at/modified-at for submission
     await update(`
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT DATA {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
           ${sparqlEscapeUri(extractSubmissionUrl(store))}
@@ -174,27 +183,28 @@ export async function storeSubmission(
 
     await jobsAndTasks.automaticSubmissionTaskSuccess(
       submissionGraph,
-      automaticSubmissionTaskUri,
-      jobUri,
+      task.value,
+      job.value,
       remoteDataUri
     );
 
-    return { submissionUri: meldingUri, jobUri };
+    return { submissionUri: meldingUri, jobUri: job.value };
   } catch (e) {
     console.error(
-      `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${automaticSubmissionTaskUri}.`
+      `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${task.value}.`
     );
     console.error(e.message);
     console.info('Cleaning credentials');
-    const errorUri = await sendErrorAlert({
-      message: `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${automaticSubmissionTaskUri}.`,
-      detail: e.message,
-    });
+    const error = await err.create(
+      namedNode(cts.SERVICES.automaticSubmission),
+      `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${task.value}.`,
+      e.message
+    );
     await jobsAndTasks.automaticSubmissionTaskFail(
       submissionGraph,
-      automaticSubmissionTaskUri,
-      jobUri,
-      errorUri
+      task.value,
+      job.value,
+      error.value
     );
     e.alreadyStoredError = true;
     if (authenticationConfiguration)
@@ -212,7 +222,7 @@ async function attachClonedAuthenticationConfiguraton(
   remoteObjectGraph
 ) {
   const getInfoQuery = `
-    ${env.PREFIXES}
+    ${cts.SPARQL_PREFIXES}
     SELECT DISTINCT ?graph ?secType ?authenticationConfiguration WHERE {
       GRAPH ?graph {
         ${sparqlEscapeUri(submissionUri)}
@@ -222,7 +232,10 @@ async function attachClonedAuthenticationConfiguraton(
       }
     }`;
 
-  const authData = parseResult(await query(getInfoQuery))[0];
+  const response = await query(getInfoQuery);
+  const sparqlJsonParser = new sjp.SparqlJsonParser();
+  const authData = sparqlJsonParser.parseJsonResults(response)[0];
+
   const newAuthConf = `http://data.lblod.info/authentications/${uuid()}`;
   const newConf = `http://data.lblod.info/configurations/${uuid()}`;
   const newCreds = `http://data.lblod.info/credentials/${uuid()}`;
@@ -231,16 +244,16 @@ async function attachClonedAuthenticationConfiguraton(
 
   if (!authData) {
     return;
-  } else if (authData.secType === env.BASIC_AUTH) {
+  } else if (authData.secType.value === env.BASIC_AUTH) {
     cloneQuery = `
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT {
         GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
           ${sparqlEscapeUri(remoteDataObjectUri)}
             dgftSec:targetAuthenticationConfiguration
               ${sparqlEscapeUri(newAuthConf)} .
         }
-        GRAPH ${sparqlEscapeUri(authData.graph)} {
+        GRAPH ${sparqlEscapeUri(authData.graph.value)} {
           ${sparqlEscapeUri(newAuthConf)}
             dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
           ${sparqlEscapeUri(newCreds)}
@@ -253,27 +266,27 @@ async function attachClonedAuthenticationConfiguraton(
         }
       }
       WHERE {
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
+        ${sparqlEscapeUri(authData.authenticationConfiguration.value)}
           dgftSec:securityConfiguration ?srcConfg.
         ?srcConfg
           ?srcConfP ?srcConfO.
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
+        ${sparqlEscapeUri(authData.authenticationConfiguration.value)}
           dgftSec:secrets ?srcSecrets.
         ?srcSecrets
           meb:username ?user ;
           muAccount:password ?pass .
      }
    `;
-  } else if (authData.secType == env.OAUTH2) {
+  } else if (authData.secType.value == env.OAUTH2) {
     cloneQuery = `
-      ${env.PREFIXES}
+      ${cts.SPARQL_PREFIXES}
       INSERT {
         GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
           ${sparqlEscapeUri(remoteDataObjectUri)}
             dgftSec:targetAuthenticationConfiguration
               ${sparqlEscapeUri(newAuthConf)} .
         }
-        GRAPH ${sparqlEscapeUri(authData.graph)} {
+        GRAPH ${sparqlEscapeUri(authData.graph.value)} {
           ${sparqlEscapeUri(newAuthConf)}
             dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
           ${sparqlEscapeUri(newCreds)}
@@ -286,18 +299,18 @@ async function attachClonedAuthenticationConfiguraton(
         }
       }
       WHERE {
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
+        ${sparqlEscapeUri(authData.authenticationConfiguration.value)}
           dgftSec:securityConfiguration ?srcConfg .
         ?srcConfg
           ?srcConfP ?srcConfO .
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
+        ${sparqlEscapeUri(authData.authenticationConfiguration.value)}
           dgftSec:secrets ?srcSecrets .
         ?srcSecrets
           dgftOauth:clientId ?clientId ;
           dgftOauth:clientSecret ?clientSecret .
      }`;
   } else {
-    throw `Unsupported Security type ${authData.secType}`;
+    throw `Unsupported Security type ${authData.secType.value}`;
   }
 
   await update(cloneQuery);
@@ -307,7 +320,7 @@ async function attachClonedAuthenticationConfiguraton(
 
 async function cleanCredentials(authenticationConfigurationUri) {
   let cleanQuery = `
-    ${env.PREFIXES}
+    ${cts.SPARQL_PREFIXES}
     DELETE {
       GRAPH ?g {
         ?srcSecrets ?secretsP ?secretsO.
@@ -324,40 +337,9 @@ async function cleanCredentials(authenticationConfigurationUri) {
   await update(cleanQuery);
 }
 
-/**
- * convert results of select query to an array of objects.
- * courtesy: Niels Vandekeybus & Felix
- * @method parseResult
- * @return {Array}
- */
-export function parseResult(result) {
-  if (!(result.results && result.results.bindings.length)) return [];
-
-  const bindingKeys = result.head.vars;
-  return result.results.bindings.map((row) => {
-    const obj = {};
-    bindingKeys.forEach((key) => {
-      if (
-        row[key] &&
-        row[key].datatype == 'http://www.w3.org/2001/XMLSchema#integer' &&
-        row[key].value
-      ) {
-        obj[key] = parseInt(row[key].value);
-      } else if (
-        row[key] &&
-        row[key].datatype == 'http://www.w3.org/2001/XMLSchema#dateTime' &&
-        row[key].value
-      ) {
-        obj[key] = new Date(row[key].value);
-      } else obj[key] = row[key] ? row[key].value : undefined;
-    });
-    return obj;
-  });
-}
-
 export async function verifyKeyAndOrganisation(vendor, key, organisation) {
   const result = await query(`
-    ${env.PREFIXES}
+    ${cts.SPARQL_PREFIXES}
     SELECT DISTINCT ?organisationID WHERE  {
       GRAPH <http://mu.semte.ch/graphs/automatic-submission> {
         ${sparqlEscapeUri(vendor)}
@@ -378,45 +360,4 @@ export function cleanseRequestBody(body) {
   delete cleansed.authentication;
   delete cleansed.publisher.key;
   return cleansed;
-}
-
-export async function sendErrorAlert({ message, detail, reference }) {
-  if (!message) throw 'Error needs a message describing what went wrong.';
-  const id = uuid();
-  const uri = `http://data.lblod.info/errors/${id}`;
-  const referenceTriple = reference
-    ? `${sparqlEscapeUri(uri)}
-         dct:references ${sparqlEscapeUri(reference)} .`
-    : '';
-  const detailTriple = detail
-    ? `${sparqlEscapeUri(uri)}
-         oslc:largePreview ${sparqlEscapeString(detail)} .`
-    : '';
-  const q = `
-    PREFIX mu:   <http://mu.semte.ch/vocabularies/core/>
-    PREFIX oslc: <http://open-services.net/ns/core#>      
-    PREFIX dct:  <http://purl.org/dc/terms/>
-    PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
-    
-    INSERT DATA {
-      GRAPH <http://mu.semte.ch/graphs/error> {
-        ${sparqlEscapeUri(uri)}
-          a oslc:Error ;
-          mu:uuid ${sparqlEscapeString(id)} ;
-          dct:subject ${sparqlEscapeString('Automatic Submission Service')} ;
-          oslc:message ${sparqlEscapeString(message)} ;
-          dct:created ${sparqlEscapeDateTime(new Date().toISOString())} ;
-          dct:creator ${sparqlEscapeUri(env.CREATOR)} .
-        ${referenceTriple}
-        ${detailTriple}
-      }
-    }`;
-  try {
-    await update(q);
-    return uri;
-  } catch (e) {
-    console.warn(
-      `[WARN] Something went wrong while trying to store an error.\nMessage: ${e}\nQuery: ${q}`
-    );
-  }
 }

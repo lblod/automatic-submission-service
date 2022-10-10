@@ -3,7 +3,6 @@ import {
   verifyKeyAndOrganisation,
   storeSubmission,
   isSubmitted,
-  sendErrorAlert,
   cleanseRequestBody,
 } from './support.js';
 import bodyParser from 'body-parser';
@@ -15,12 +14,14 @@ import {
   extractAuthentication,
   validateExtractedInfo,
 } from './jsonld-input.js';
-import * as env from './env.js';
+import * as cts from './automatic-submission-flow-tools/constants.js';
+import * as err from './automatic-submission-flow-tools/errors.js';
+import * as del from './automatic-submission-flow-tools/deltas.js';
 import {
+  getSubmissionStatus,
   getTaskInfoFromRemoteDataObject,
   downloadTaskUpdate,
-} from './downloadTaskManagement.js';
-import { getSubmissionStatusRdfJS } from './jobAndTaskManagement.js';
+} from './jobAndTaskManagement.js';
 import { Lock } from 'async-await-mutex-lock';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
@@ -62,7 +63,7 @@ app.post('/melding', async function (req, res) {
     const { submissionUri, jobUri } = await storeSubmission(
       store,
       submissionGraph,
-      submissionGraph,
+      submissionGraph, //NOTE COULD BE DIFFERENT filesGraph
       authenticationConfiguration
     );
     res.status(201).send({ submission: submissionUri, job: jobUri }).end();
@@ -77,12 +78,12 @@ app.post('/melding', async function (req, res) {
         undefined,
         2
       );
-      sendErrorAlert({
-        message:
-          'Something unexpected went wrong while processing an auto-submission request.',
+      await err.create(
+        namedNode(cts.SERVICES.automaticSubmission),
+        'Something unexpected went wrong while processing an auto-submission request.',
         detail,
-        reference: e.reference,
-      });
+        e.reference
+      );
     }
     res
       .status(500)
@@ -100,48 +101,51 @@ app.post('/download-status-update', async function (req, res) {
   await lock.acquire();
   try {
     //Because the delta-notifier is lazy/incompetent we need a lot more filtering before we actually know that a resource's status has been set to ongoing
-    const actualStatusChange = req.body
-      .map((changeset) => changeset.inserts)
-      .filter((inserts) => inserts.length > 0)
-      .flat()
-      .filter((insert) => insert.predicate.value === env.ADMS_STATUS_PREDICATE)
-      .filter(
-        (insert) =>
-          insert.object.value === env.DOWNLOAD_STATUSES.ongoing ||
-          insert.object.value === env.DOWNLOAD_STATUSES.success ||
-          insert.object.value === env.DOWNLOAD_STATUSES.failure
-      );
+    const actualStatusChange = del.getTriplesWithFunctions(
+      req.body,
+      (insert) =>
+        /http:\/\/data.lblod.info\/id\/remote-data-objects\//.test(
+          insert.subject.value
+        ),
+      (insert) => insert.predicate.value === cts.PREDICATE_TABLE.adms_status,
+      (insert) =>
+        insert.object.value === cts.DOWNLOAD_STATUSES.ongoing ||
+        insert.object.value === cts.DOWNLOAD_STATUSES.success ||
+        insert.object.value === cts.DOWNLOAD_STATUSES.failure
+    );
     for (const remoteDataObjectTriple of actualStatusChange) {
-      const {
-        downloadTaskUri,
-        jobUri,
-        oldStatus,
-        submissionGraph,
-        fileUri,
-        errorMsg,
-      } = await getTaskInfoFromRemoteDataObject(
-        remoteDataObjectTriple.subject.value
-      );
+      const { task, job, status, submissionGraph, file, errorMsg } =
+        await getTaskInfoFromRemoteDataObject(
+          remoteDataObjectTriple.subject.value
+        );
       //Update the status also passing the old status to not make any illegal updates
+      let error;
+      if (errorMsg)
+        error = await err.create(
+          namedNode(cts.SERVICES.automaticSubmission),
+          'The requested resource could not be downloaded.',
+          errorMsg
+        );
       await downloadTaskUpdate(
-        submissionGraph,
-        downloadTaskUri,
-        jobUri,
-        oldStatus,
+        submissionGraph.value,
+        task.value,
+        job.value,
+        status.value,
         remoteDataObjectTriple.object.value,
         remoteDataObjectTriple.subject.value,
-        fileUri,
-        errorMsg
+        file?.value,
+        error?.value
       );
     }
     res.status(200).send().end();
   } catch (e) {
     console.error(e.message);
     if (!e.alreadyStoredError)
-      sendErrorAlert({
-        message: 'Could not process a download status update',
-        detail: JSON.stringify({ error: e.message }),
-      });
+      await err.create(
+        namedNode(cts.SERVICES.automaticSubmission),
+        'Could not process a download status update',
+        JSON.stringify({ error: e.message })
+      );
     res.status(500).json({
       errors: [
         {
@@ -190,10 +194,10 @@ app.post('/status', statusLimiter, async function (req, res) {
     if (!submissionUri)
       throw new Error('There was no submission URI in the request');
 
-    const { statusRdfJSTriples, JobStatusContext, JobStatusFrame } =
-      await getSubmissionStatusRdfJS(submissionUri);
+    const { statusStore, JobStatusContext, JobStatusFrame } =
+      await getSubmissionStatus(submissionUri);
     const jsonLdObject = await storeToJsonLd(
-      statusRdfJSTriples,
+      statusStore,
       JobStatusContext,
       JobStatusFrame
     );
@@ -203,7 +207,11 @@ app.post('/status', statusLimiter, async function (req, res) {
       'Something went wrong while fetching the status of the submitted resource and its associated Job';
     console.error(message, error.message);
     console.error(error);
-    await sendErrorAlert({ message, detail: error.message });
+    await err.create(
+      namedNode(cts.SERVICES.automaticSubmission),
+      message,
+      error.message
+    );
     res.status(500).send(`${message}\n${error.message}`);
   }
 });
