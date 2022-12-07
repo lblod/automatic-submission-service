@@ -4,13 +4,15 @@ import { Writer } from 'n3';
 import * as env from './env.js';
 import * as jobsAndTasks from './jobAndTaskManagement.js';
 
-async function isSubmitted(resource) {
+async function isSubmitted(resource, submissionGraph) {
   const result = await query(`
       PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
       SELECT (COUNT(*) as ?count)
       WHERE {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
           ${sparqlEscapeUri(resource)} ?p ?o .
+        }
       }
     `);
 
