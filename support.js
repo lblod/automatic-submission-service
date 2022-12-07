@@ -58,7 +58,7 @@ async function triplesToTurtle(triples) {
   return promise;
 }
 
-async function storeSubmission(triples, submissionGraph, fileGraph, authenticationConfiguration) {
+async function storeSubmission(triples, submissionGraph, authenticationConfiguration) {
   let newAuthConf = {};
   const meldingUri = extractMeldingUri(triples);
   const { jobUri, automaticSubmissionTaskUri, } = await jobsAndTasks.startJob(submissionGraph, meldingUri);
@@ -99,12 +99,12 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
     // E.g. after import-submission we're quite sure. But what if something goes wrong before that, or a download just takes longer.
     // The highly aync process makes it complicated
     // Note: probably some clean up background job might be needed. Needs perhaps a bit of better thinking
-    newAuthConf = await attachClonedAuthenticationConfiguraton(remoteDataUri, meldingUri, fileGraph);
+    newAuthConf = await attachClonedAuthenticationConfiguraton(remoteDataUri, meldingUri, submissionGraph);
 
     await update(`
       ${env.PREFIXES}
       INSERT DATA {
-        GRAPH ${sparqlEscapeUri(fileGraph)} {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
             ${sparqlEscapeUri(remoteDataUri)} a nfo:RemoteDataObject, nfo:FileDataObject;
                                               rpioHttp:requestHeader <http://data.lblod.info/request-headers/accept/text/html>;
                                               mu:uuid ${sparqlEscapeString(remoteDataId)};
@@ -159,11 +159,11 @@ async function storeSubmission(triples, submissionGraph, fileGraph, authenticati
   }
 }
 
-async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submissionUri, remoteObjectGraph) {
+async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submissionUri, submissionGraph) {
   const getInfoQuery = `
     ${env.PREFIXES}
     SELECT DISTINCT ?graph ?secType ?authenticationConfiguration WHERE {
-     GRAPH ?graph {
+     GRAPH ${sparqlEscapeUri(submissionGraph)} {
        ${sparqlEscapeUri(submissionUri)} dgftSec:targetAuthenticationConfiguration ?authenticationConfiguration.
        ?authenticationConfiguration dgftSec:securityConfiguration/rdf:type ?secType .
      }
@@ -183,12 +183,8 @@ async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submi
     cloneQuery = `
       ${env.PREFIXES}
       INSERT {
-        GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
-          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(
-        newAuthConf)} .
-        }
-
-        GRAPH ${sparqlEscapeUri(authData.graph)} {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(newAuthConf)} .
           ${sparqlEscapeUri(newAuthConf)} dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
           ${sparqlEscapeUri(newCreds)} meb:username ?user ;
             muAccount:password ?pass .
@@ -198,24 +194,21 @@ async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submi
         }
       }
       WHERE {
-        ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:securityConfiguration ?srcConfg.
-        ?srcConfg ?srcConfP ?srcConfO.
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+          ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:securityConfiguration ?srcConfg.
+          ?srcConfg ?srcConfP ?srcConfO.
 
-       ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:secrets ?srcSecrets.
-       ?srcSecrets  meb:username ?user ;
-         muAccount:password ?pass .
-     }
-   `;
+          ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:secrets ?srcSecrets.
+          ?srcSecrets  meb:username ?user ;
+            muAccount:password ?pass .
+        }
+     }`;
   } else if (authData.secType == env.OAUTH2) {
     cloneQuery = `
       ${env.PREFIXES}
       INSERT {
-        GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
-          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(
-        newAuthConf)} .
-        }
-
-        GRAPH ${sparqlEscapeUri(authData.graph)} {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(newAuthConf)} .
           ${sparqlEscapeUri(newAuthConf)} dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
           ${sparqlEscapeUri(newCreds)} dgftOauth:clientId ?clientId ;
             dgftOauth:clientSecret ?clientSecret .
@@ -225,14 +218,15 @@ async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submi
         }
       }
       WHERE {
-        ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:securityConfiguration ?srcConfg.
-        ?srcConfg ?srcConfP ?srcConfO.
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+          ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:securityConfiguration ?srcConfg.
+          ?srcConfg ?srcConfP ?srcConfO.
 
-       ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:secrets ?srcSecrets.
-       ?srcSecrets  dgftOauth:clientId ?clientId ;
-         dgftOauth:clientSecret ?clientSecret .
-     }
-   `;
+          ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:secrets ?srcSecrets.
+          ?srcSecrets  dgftOauth:clientId ?clientId ;
+            dgftOauth:clientSecret ?clientSecret .
+        }
+     }`;
   } else {
     throw `Unsupported Security type ${authData.secType}`;
   }
