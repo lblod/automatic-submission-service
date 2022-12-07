@@ -76,8 +76,10 @@ app.post('/melding', async function (req, res, next) {
         return;
       }
 
+      const submissionGraph = config.GRAPH_TEMPLATE.replace('~ORGANIZATION_ID~', organisationID);
+
       // check if the resource has already been submitted
-      if (await isSubmitted(submittedResource)) {
+      if (await isSubmitted(submittedResource, submissionGraph)) {
         res.status(409).send({
           errors: [{
             title: `The given submittedResource <${submittedResource}> has already been submitted.`
@@ -87,8 +89,7 @@ app.post('/melding', async function (req, res, next) {
       }
 
       // process the new auto-submission
-      const submissionGraph = config.GRAPH_TEMPLATE.replace('~ORGANIZATION_ID~', organisationID);
-      const uri = await storeSubmission(triples, submissionGraph, submissionGraph, authenticationConfiguration);
+      const uri = await storeSubmission(triples, submissionGraph, authenticationConfiguration);
       res.status(201).send({uri}).end();
     }
   } catch (e) {
