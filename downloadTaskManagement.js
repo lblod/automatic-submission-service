@@ -23,8 +23,10 @@ export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
   const response = await query(taskQuery);
   let results = response.results.bindings;
   if (results.length > 0) results = results[0];
-  else
-    throw new Error(`Could not find task and other necessary related information for remote data object ${remoteDataObjectUri}.`);
+  else {
+    console.log(`Could not find task and other necessary related information for remote data object ${remoteDataObjectUri}.`);
+    return {} ;
+  }
   return {
     downloadTaskUri: results.task.value,
     jobUri: results.job.value,
@@ -52,7 +54,9 @@ export async function downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUr
         return downloadFail(submissionGraph, downloadTaskUri, jobUri, logicalFileUri, errorMsg);
       break;
   }
-  throw new Error(`Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`);
+  console.log(`Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition
+               to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`);
+  return null;
 }
 
 //TODO in the future: maybe remove if better implemented in download-url-service
@@ -123,7 +127,7 @@ export async function downloadTaskCreate(submissionGraph, jobUri, remoteDataObje
     }
   `;
   await update(downloadTaskQuery);
-  
+
   const downloadTaskUri = env.JOB_PREFIX.concat(downloadTaskUuid);
   return downloadTaskUri;
 }
@@ -268,4 +272,3 @@ async function downloadFail(submissionGraph, downloadTaskUri, jobUri, logicalFil
   `;
   await update(assJobQuery);
 }
-
