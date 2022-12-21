@@ -129,11 +129,16 @@ app.post('/download-status-update', async function (req, res) {
     for (const remoteDataObjectTriple of actualStatusChange) {
       const { downloadTaskUri, jobUri, oldStatus, submissionGraph, fileUri, errorMsg } = await getTaskInfoFromRemoteDataObject(remoteDataObjectTriple.subject.value);
       //Update the status also passing the old status to not make any illegal updates
-      if(jobUri) {
-        await downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldStatus,
-                                 remoteDataObjectTriple.object.value,
-                                 remoteDataObjectTriple.subject.value, fileUri, errorMsg);
-      }
+      if (jobUri)
+        await downloadTaskUpdate(
+          submissionGraph,
+          downloadTaskUri,
+          jobUri,
+          oldStatus,
+          remoteDataObjectTriple.object.value,
+          remoteDataObjectTriple.subject.value,
+          fileUri,
+          errorMsg);
     }
     res.status(200).send().end();
   }
