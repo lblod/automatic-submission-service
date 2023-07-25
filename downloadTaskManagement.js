@@ -156,7 +156,7 @@ export async function downloadTaskCreate(
           dct:isPartOf ${sparqlEscapeUri(jobUri)} ;
           task:inputContainer asj:${inputContainerUuid} .
 
-        asj:j${inputContainerUuid}
+        asj:${inputContainerUuid}
           a nfo:DataContainer ;
           mu:uuid ${sparqlEscapeString(inputContainerUuid)} ;
           task:hasHarvestingCollection asj:${harvestingCollectionUuid} .
