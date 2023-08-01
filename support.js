@@ -74,7 +74,7 @@ async function storeToTurtle(store) {
   return ttl;
 }
 
-async function storeSubmission(triples, submissionGraph, authenticationConfiguration) {
+async function storeSubmission(store, submissionGraph, authenticationConfiguration) {
   let newAuthConf = {};
   const meldingUri = extractMeldingUri(store);
   const { jobUri, automaticSubmissionTaskUri, } = await jobsAndTasks.startJob(submissionGraph, meldingUri);
