@@ -1,6 +1,6 @@
 {
   "name": "automatic-submission-service",
-  "version": "0.12.1",
+  "version": "1.1.0",
   "description": "Microservice providing an API for external parties to process inzendingen voor toezicht.",
   "dependencies": {
     "@lblod/mu-auth-sudo": "^0.2.0",
@@ -9,7 +9,8 @@
     "jsonld": "^8.1.0",
     "lodash": "^4.17.15",
     "n3": "^1.16.2",
-    "sparqljson-parse": "^2.1.1"
+    "sparqljson-parse": "^2.1.1",
+    "env-var": "^7.3.0"
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
