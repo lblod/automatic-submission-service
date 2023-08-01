@@ -1,5 +1,11 @@
-import {app, errorHandler} from 'mu';
-import { verifyKeyAndOrganisation, storeSubmission, isSubmitted, sendErrorAlert, cleanseRequestBody } from './support.js';
+import { app, errorHandler } from 'mu';
+import {
+  verifyKeyAndOrganisation,
+  storeSubmission,
+  isSubmitted,
+  sendErrorAlert,
+  cleanseRequestBody,
+} from './support';
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
 import {
@@ -8,20 +14,22 @@ import {
   extractInfoFromTriplesForRegister,
   extractAuthentication,
   validateExtractedInfo,
-} from './jsonld-input.js';
-import * as env from './env.js';
+} from './jsonld-input';
+import * as env from './env';
 import * as config from './config';
-import { getTaskInfoFromRemoteDataObject, downloadTaskUpdate } from './downloadTaskManagement.js';
-import { getSubmissionStatusRdfJS } from './jobAndTaskManagement.js';
+import {
+  getTaskInfoFromRemoteDataObject,
+  downloadTaskUpdate,
+} from './downloadTaskManagement';
+import { getSubmissionStatusRdfJS } from './jobAndTaskManagement';
 import { Lock } from 'async-await-mutex-lock';
-const N3 = require('n3');
-const { DataFactory } = N3;
-const { namedNode } = DataFactory;
+import * as N3 from 'n3';
+const { namedNode } = N3.DataFactory;
 import rateLimit from 'express-rate-limit';
 
 app.use(errorHandler);
 // support both jsonld and json content-type
-app.use(bodyParser.json({type: 'application/ld+json'}));
+app.use(bodyParser.json({ type: 'application/ld+json' }));
 app.use(bodyParser.json());
 
 app.post('/melding', async function (req, res) {
@@ -47,14 +55,21 @@ app.post('/melding', async function (req, res) {
     // authenticate vendor
     const organisationID = await ensureAuthorisation(store);
 
-    const submissionGraph = config.GRAPH_TEMPLATE.replace('~ORGANIZATION_ID~', organisationID);
+    const submissionGraph = config.GRAPH_TEMPLATE.replace(
+      '~ORGANIZATION_ID~',
+      organisationID,
+    );
 
     // check if the resource has already been submitted
     await ensureNotSubmitted(submittedResource, submissionGraph);
 
     // process the new auto-submission
-    const { submissionUri, jobUri } = await storeSubmission(store, submissionGraph, authenticationConfiguration);
-    res.status(201).send({submission: submissionUri, job: jobUri}).end();
+    const { submissionUri, jobUri } = await storeSubmission(
+      store,
+      submissionGraph,
+      authenticationConfiguration,
+    );
+    res.status(201).send({ submission: submissionUri, job: jobUri }).end();
   } catch (e) {
     console.error(e.message);
     if (!e.alreadyStoredError) {
@@ -64,7 +79,7 @@ app.post('/melding', async function (req, res) {
           req: cleanseRequestBody(req.body),
         },
         undefined,
-        2
+        2,
       );
       sendErrorAlert({
         message:
@@ -76,7 +91,7 @@ app.post('/melding', async function (req, res) {
     res
       .status(500)
       .send(
-        `An error happened while processing the auto-submission request. If this keeps occurring for no good reason, please contact us at digitaalABB@vlaanderen.be. Please consult the technical error below.\n${e.message}`
+        `An error happened while processing the auto-submission request. If this keeps occurring for no good reason, please contact us at digitaalABB@vlaanderen.be. Please consult the technical error below.\n${e.message}`,
       )
       .end();
   }
@@ -94,11 +109,23 @@ app.post('/download-status-update', async function (req, res) {
       .filter((inserts) => inserts.length > 0)
       .flat()
       .filter((insert) => insert.predicate.value === env.ADMS_STATUS_PREDICATE)
-      .filter((insert) => insert.object.value === env.DOWNLOAD_STATUSES.ongoing ||
-                          insert.object.value === env.DOWNLOAD_STATUSES.success ||
-                          insert.object.value === env.DOWNLOAD_STATUSES.failure);
+      .filter(
+        (insert) =>
+          insert.object.value === env.DOWNLOAD_STATUSES.ongoing ||
+          insert.object.value === env.DOWNLOAD_STATUSES.success ||
+          insert.object.value === env.DOWNLOAD_STATUSES.failure,
+      );
     for (const remoteDataObjectTriple of actualStatusChange) {
-      const { downloadTaskUri, jobUri, oldStatus, submissionGraph, fileUri, errorMsg } = await getTaskInfoFromRemoteDataObject(remoteDataObjectTriple.subject.value);
+      const {
+        downloadTaskUri,
+        jobUri,
+        oldStatus,
+        submissionGraph,
+        fileUri,
+        errorMsg,
+      } = await getTaskInfoFromRemoteDataObject(
+        remoteDataObjectTriple.subject.value,
+      );
       //Update the status also passing the old status to not make any illegal updates
       if (jobUri)
         await downloadTaskUpdate(
@@ -109,25 +136,27 @@ app.post('/download-status-update', async function (req, res) {
           remoteDataObjectTriple.object.value,
           remoteDataObjectTriple.subject.value,
           fileUri,
-          errorMsg);
+          errorMsg,
+        );
     }
     res.status(200).send().end();
-  }
-  catch (e) {
+  } catch (e) {
     console.error(e.message);
     if (!e.alreadyStoredError)
       sendErrorAlert({
-        message: 'Could not process a download status update' ,
-        detail: JSON.stringify({ error: e.message, }),
+        message: 'Could not process a download status update',
+        detail: JSON.stringify({ error: e.message }),
       });
     res.status(500).json({
-      errors: [{
-        title: "An error occured while updating the status of a downloaded file",
-        error: JSON.stringify(e),
-      }]
+      errors: [
+        {
+          title:
+            'An error occured while updating the status of a downloaded file',
+          error: JSON.stringify(e),
+        },
+      ],
     });
-  }
-  finally {
+  } finally {
     lock.release();
   }
 });
@@ -143,7 +172,7 @@ const statusLimiter = rateLimit({
     const store = await jsonLdToStore(enrichedBody);
     const submissionUris = store.getObjects(
       undefined,
-      namedNode('http://purl.org/dc/terms/subject')
+      namedNode('http://purl.org/dc/terms/subject'),
     );
     const submissionUri = submissionUris[0]?.value;
     return submissionUri || '';
@@ -160,7 +189,7 @@ app.post('/status', statusLimiter, async function (req, res) {
 
     const submissionUris = store.getObjects(
       undefined,
-      namedNode('http://purl.org/dc/terms/subject')
+      namedNode('http://purl.org/dc/terms/subject'),
     );
     const submissionUri = submissionUris[0]?.value;
     if (!submissionUri)
@@ -171,7 +200,7 @@ app.post('/status', statusLimiter, async function (req, res) {
     const jsonLdObject = await storeToJsonLd(
       statusRdfJSTriples,
       JobStatusContext,
-      JobStatusFrame
+      JobStatusFrame,
     );
     res.status(200).send(jsonLdObject);
   } catch (error) {
@@ -191,14 +220,14 @@ app.post('/status', statusLimiter, async function (req, res) {
 function ensureValidContentType(contentType) {
   if (!/application\/(ld\+)?json/.test(contentType))
     throw new Error(
-      'Content-Type not valid, only application/json or application/ld+json are accepted'
+      'Content-Type not valid, only application/json or application/ld+json are accepted',
     );
 }
 
 function ensureValidDataType(body) {
   if (body instanceof Array)
     throw new Error(
-      'Invalid JSON payload, expected an object but found array.'
+      'Invalid JSON payload, expected an object but found array.',
     );
 }
 
@@ -206,7 +235,7 @@ function ensureMinimalRegisterPayload(object) {
   for (const prop in object)
     if (!object[prop] && prop != 'authenticationConfiguration')
       throw new Error(
-        `Invalid JSON-LD payload: property "${prop}" is missing or invalid.`
+        `Invalid JSON-LD payload: property "${prop}" is missing or invalid.`,
       );
 }
 
@@ -217,14 +246,14 @@ function ensureValidRegisterProperties(object) {
       `Some given properties are invalid:\n${errors
         .map((e) => e.message)
         .join('\n')}
-      `
+      `,
     );
 }
 
 async function ensureNotSubmitted(submittedResource, submissionGraph) {
   if (await isSubmitted(submittedResource, submissionGraph))
     throw new Error(
-      `The given submittedResource <${submittedResource}> has already been submitted.`
+      `The given submittedResource <${submittedResource}> has already been submitted.`,
     );
 }
 
@@ -238,16 +267,16 @@ async function ensureAuthorisation(store) {
     )
   )
     throw new Error(
-      'The authentication (or part of it) for this request is missing. Make sure to supply publisher (with vendor URI and key) and organization information to the request.'
+      'The authentication (or part of it) for this request is missing. Make sure to supply publisher (with vendor URI and key) and organization information to the request.',
     );
   const organisationID = await verifyKeyAndOrganisation(
     authentication.vendor,
     authentication.key,
-    authentication.organisation
+    authentication.organisation,
   );
   if (!organisationID) {
     const error = new Error(
-      'Authentication failed, vendor does not have access to the organization or does not exist. If this should not be the case, please contact us at digitaalABB@vlaanderen.be for login credentials.'
+      'Authentication failed, vendor does not have access to the organization or does not exist. If this should not be the case, please contact us at digitaalABB@vlaanderen.be for login credentials.',
     );
     error.reference = authentication.vendor;
     throw error;
