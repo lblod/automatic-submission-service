@@ -77,7 +77,11 @@ async function storeToTurtle(store) {
   return ttl;
 }
 
-async function storeSubmission(store, submissionGraph, authenticationConfiguration) {
+export async function storeSubmission(
+  store,
+  submissionGraph,
+  authenticationConfiguration
+) {
   let newAuthConf = {};
   const meldingUri = extractMeldingUri(store);
   const { jobUri, automaticSubmissionTaskUri } = await jobsAndTasks.startJob(
@@ -125,7 +129,11 @@ async function storeSubmission(store, submissionGraph, authenticationConfigurati
     // E.g. after import-submission we're quite sure. But what if something goes wrong before that, or a download just takes longer.
     // The highly aync process makes it complicated
     // Note: probably some clean up background job might be needed. Needs perhaps a bit of better thinking
-    newAuthConf = await attachClonedAuthenticationConfiguraton(remoteDataUri, meldingUri, submissionGraph);
+    newAuthConf = await attachClonedAuthenticationConfiguraton(
+      remoteDataUri,
+      meldingUri,
+      submissionGraph
+    );
 
     await update(`
       ${env.PREFIXES}
@@ -202,7 +210,11 @@ async function storeSubmission(store, submissionGraph, authenticationConfigurati
   }
 }
 
-async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submissionUri, submissionGraph) {
+async function attachClonedAuthenticationConfiguraton(
+  remoteDataObjectUri,
+  submissionUri,
+  submissionGraph
+) {
   const getInfoQuery = `
     ${env.PREFIXES}
     SELECT DISTINCT ?graph ?secType ?authenticationConfiguration WHERE {

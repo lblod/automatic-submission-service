@@ -17,7 +17,10 @@ import {
 } from './jsonld-input.js';
 import * as env from './env.js';
 import * as config from './config';
-import { getTaskInfoFromRemoteDataObject, downloadTaskUpdate } from './downloadTaskManagement.js';
+import {
+  getTaskInfoFromRemoteDataObject,
+  downloadTaskUpdate,
+} from './downloadTaskManagement.js';
 import { getSubmissionStatusRdfJS } from './jobAndTaskManagement.js';
 import { Lock } from 'async-await-mutex-lock';
 import * as N3 from 'n3';
@@ -52,14 +55,21 @@ app.post('/melding', async function (req, res) {
     // authenticate vendor
     const organisationID = await ensureAuthorisation(store);
 
-    const submissionGraph = config.GRAPH_TEMPLATE.replace('~ORGANIZATION_ID~', organisationID);
+    const submissionGraph = config.GRAPH_TEMPLATE.replace(
+      '~ORGANIZATION_ID~',
+      organisationID
+    );
 
     // check if the resource has already been submitted
     await ensureNotSubmitted(submittedResource, submissionGraph);
 
     // process the new auto-submission
-    const { submissionUri, jobUri } = await storeSubmission(store, submissionGraph, authenticationConfiguration);
-    res.status(201).send({submission: submissionUri, job: jobUri}).end();
+    const { submissionUri, jobUri } = await storeSubmission(
+      store,
+      submissionGraph,
+      authenticationConfiguration
+    );
+    res.status(201).send({ submission: submissionUri, job: jobUri }).end();
   } catch (e) {
     console.error(e.message);
     if (!e.alreadyStoredError) {
@@ -126,7 +136,8 @@ app.post('/download-status-update', async function (req, res) {
           remoteDataObjectTriple.object.value,
           remoteDataObjectTriple.subject.value,
           fileUri,
-          errorMsg);
+          errorMsg
+        );
     }
     res.status(200).send().end();
   } catch (e) {

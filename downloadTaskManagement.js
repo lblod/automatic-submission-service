@@ -29,7 +29,9 @@ export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
   let results = response.results.bindings;
   if (results.length > 0) results = results[0];
   else {
-    const err = new Error(`Could not find task and other necessary related information for remote data object ${remoteDataObjectUri}.`);
+    const err = new Error(
+      `Could not find task and other necessary related information for remote data object ${remoteDataObjectUri}.`
+    );
     err.alreadyStoredError = true; //No need to store the error
     throw err;
   }
@@ -89,7 +91,9 @@ export async function downloadTaskUpdate(
         );
       break;
   }
-  const err = new Error(`Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`);
+  const err = new Error(
+    `Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`
+  );
   err.alreadyStoredError = true; //No need to store the error
   throw err;
 }
