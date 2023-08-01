@@ -1,10 +1,8 @@
 import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import { uuid, sparqlEscapeString, sparqlEscapeDateTime, sparqlEscapeUri } from 'mu';
+import { Writer } from 'n3';
 import * as env from './env.js';
 import * as jobsAndTasks from './jobAndTaskManagement.js';
-const N3 = require('n3');
-const { DataFactory } = N3;
-const { namedNode } = DataFactory;
 
 async function isSubmitted(resource, submissionGraph) {
   const result = await query(`
@@ -21,66 +19,52 @@ async function isSubmitted(resource, submissionGraph) {
   return parseInt(result.results.bindings[0].count.value) > 0;
 }
 
-function extractSubmissionUrl(store) {
-  const submissionUrls = store.getSubjects(
-    namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-    namedNode('http://rdf.myexperiment.org/ontologies/base/Submission')
-  );
-  return submissionUrls[0]?.value;
+function extractSubmissionUrl(triples) {
+  return triples.find((triple) =>
+      triple.predicate.value === 'http://www.w3.org/1999/02/22-rdf-syntax-ns#type' &&
+      triple.object.value === 'http://rdf.myexperiment.org/ontologies/base/Submission'
+  ).subject.value;
 }
 
-function findSubmittedResource(store) {
-  const submittedResources = store.getObjects(
-    undefined,
-    namedNode('http://purl.org/dc/terms/subject')
-  );
-  return submittedResources[0]?.value;
+function findSubmittedResource(triples) {
+  return triples.find((triple) => triple.predicate.value === 'http://purl.org/dc/terms/subject').object.value;
 }
 
-function extractLocationUrl(store) {
-  const locations = store.getObjects(
-    undefined,
-    namedNode('http://www.w3.org/ns/prov#atLocation')
-  );
-  return locations[0]?.value;
+function extractLocationUrl(triples) {
+  return triples.find((triple) => triple.predicate.value === 'http://www.w3.org/ns/prov#atLocation').object.value;
 }
 
-function extractMeldingUri(store) {
-  const submissionUris = store.getSubjects(
-    undefined,
-    namedNode('http://rdf.myexperiment.org/ontologies/base/Submission')
-  );
-  return submissionUris[0]?.value;
+function extractMeldingUri(triples) {
+  return triples.find(
+      (triple) => triple.object.value === 'http://rdf.myexperiment.org/ontologies/base/Submission').subject.value;
 }
 
-async function storeToTurtle(store) {
-  const vendors = store.getObjects(
-    undefined,
-    namedNode('http://purl.org/pav/providedBy'),
-  );
-  const vendor = vendors[0];
-  const storeCopy = new N3.Store();
-  storeCopy.addQuads([...store]);
-  const toRemove = storeCopy.getQuads(vendor);
-  storeCopy.removeQuads(toRemove);
-  const writer = new N3.Writer({ format: 'application/n-quads' });
-  storeCopy.forEach((quad) => writer.addQuad(quad));
-  const ttl = await new Promise((resolve, reject) => {
+async function triplesToTurtle(triples) {
+  const vendor = triples.find((t) => t.predicate.value === 'http://purl.org/pav/providedBy').object.value;
+  const triplesToSave = triples.filter((t) => {
+    return t.subject.value !== vendor;
+  });
+  const promise = new Promise((resolve, reject) => {
+    const writer = new Writer({format: 'application/n-quads'});
+    writer.addQuads(triplesToSave);
     writer.end((error, result) => {
-      if (error) reject(error);
-      else resolve(result);
+      if (error) {
+        reject(error);
+      } else {
+        resolve(result);
+      }
     });
   });
-  return ttl;
+  return promise;
 }
 
-async function storeSubmission(store, submissionGraph, authenticationConfiguration) {
+async function storeSubmission(triples, submissionGraph, authenticationConfiguration) {
   let newAuthConf = {};
-  const meldingUri = extractMeldingUri(store);
+  const meldingUri = extractMeldingUri(triples);
   const { jobUri, automaticSubmissionTaskUri, } = await jobsAndTasks.startJob(submissionGraph, meldingUri);
   try {
-    const submittedResource = findSubmittedResource(store);
-    const turtle = await storeToTurtle(store);
+    const submittedResource = findSubmittedResource(triples);
+    const turtle = await triplesToTurtle(triples);
     await update(`
       ${env.PREFIXES}
       INSERT DATA {
@@ -105,7 +89,7 @@ async function storeSubmission(store, submissionGraph, authenticationConfigurati
     const timestamp = new Date();
     const remoteDataId = uuid();
     const remoteDataUri = `http://data.lblod.info/id/remote-data-objects/${remoteDataId}`;
-    const locationUrl = extractLocationUrl(store);
+    const locationUrl = extractLocationUrl(triples);
 
     // We need to attach a cloned version of the authentication data, because:
     // 1. donwloadUrl will delete credentials after final state
@@ -147,8 +131,8 @@ async function storeSubmission(store, submissionGraph, authenticationConfigurati
       ${env.PREFIXES}
       INSERT DATA {
         GRAPH ${sparqlEscapeUri(submissionGraph)} {
-            ${sparqlEscapeUri(extractSubmissionUrl(store))}  dct:created  ${sparqlEscapeDateTime(new Date())}.
-            ${sparqlEscapeUri(extractSubmissionUrl(store))}  dct:modified ${sparqlEscapeDateTime(new Date())}.
+            ${sparqlEscapeUri(extractSubmissionUrl(triples))}  dct:created  ${sparqlEscapeDateTime(new Date())}.
+            ${sparqlEscapeUri(extractSubmissionUrl(triples))}  dct:modified ${sparqlEscapeDateTime(new Date())}.
         }
       }
     `);

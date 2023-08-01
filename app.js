@@ -24,61 +24,102 @@ app.use(errorHandler);
 app.use(bodyParser.json({type: 'application/ld+json'}));
 app.use(bodyParser.json());
 
-app.post('/melding', async function (req, res) {
+app.post('/melding', async function (req, res, next) {
+  const validContentType = /application\/(ld\+)?json/.test(req.get('content-type'));
+  if (!validContentType) {
+    res.status(400).send({errors: [{title: "invalid content-type only application/json or application/ld+json are accepted"}]}).end();
+  }
   try {
-    ensureValidContentType(req.get('content-type'));
-    ensureValidDataType(req.body);
-    // enrich the body with minimum required json LD properties
-    const enrichedBody = await enrichBodyForRegister(req.body);
-    // extracted the minimal required triples
-    const store = await jsonLdToStore(enrichedBody);
-    //const triples = await jsonld.default.toRDF(enrichedBody, {});
+    if (req.body instanceof Array) {
+      res.status(400).send({errors: [{title: "invalid json payload, expected an object but found array"}]}).end();
+    } else {
+      const body = req.body;
+      console.log("Incoming request on /melding");
+      //console.debug(body);
 
-    const extracted = extractInfoFromTriplesForRegister(store);
+      // enrich the body with minimum required json LD properties
+      await enrichBodyForRegister(body);
+      // extracted the minimal required triples
+      const triples = await jsonld.default.toRDF(body, {});
 
-    // check if the minimal required payload is available
-    ensureMinimalRegisterPayload(extracted);
+      const extracted = extractInfoFromTriplesForRegister(triples);
 
-    // check if the extracted properties are valid
-    ensureValidRegisterProperties(extracted);
+      // check if the minimal required payload is available
+      for (let prop in extracted) {
+        if (!extracted[prop] && prop != 'authenticationConfiguration') { //TODO: if required vs optional fields grow, this will need to be better
+          console.log(`WARNING: received an invalid JSON-LD payload! Could not extract ${prop}`);
+          console.debug(body);
+          res.status(400).send({
+            errors: [{
+              title: `Invalid JSON-LD payload: property ${prop.toLocaleUpperCase()} is missing or invalid.`,
+              extractedTriples: triples
+            }]
+          }).end();
+          return;
+        }
+      }
 
-    const { submittedResource, authenticationConfiguration } = extracted;
+      // check if the extracted properties are valid
+      const {isValid, errors} = validateExtractedInfo(extracted);
+      if (!isValid) {
+        res.status(400).send({errors}).end();
+        return;
+      }
 
-    // authenticate vendor
-    const organisationID = await ensureAuthorisation(store);
+      const { key, vendor, organisation, submittedResource, authenticationConfiguration } = extracted;
 
-    const submissionGraph = config.GRAPH_TEMPLATE.replace('~ORGANIZATION_ID~', organisationID);
+      // authenticate vendor
+      const organisationID = await verifyKeyAndOrganisation(vendor, key, organisation);
+      if (!organisationID) {
+        const detail = JSON.stringify(cleanseRequestBody(req.body), undefined, 2);
+        sendErrorAlert({
+          message: `Authentication failed, vendor does not have access to the organization or doesn't exist.` ,
+          detail,
+          reference: vendor
+        });
+        res.status(401).send({
+          errors: [{
+            title: "Authentication failed, you do not have access to this resource. " +
+              "If this should not be the case, please contact us at digitaalABB@vlaanderen.be for login credentials."
+          }]
+        }).end();
+        return;
+      }
 
-    // check if the resource has already been submitted
-    await ensureNotSubmitted(submittedResource, submissionGraph);
+      const submissionGraph = config.GRAPH_TEMPLATE.replace('~ORGANIZATION_ID~', organisationID);
 
-    // process the new auto-submission
-    const { submissionUri, jobUri } = await storeSubmission(store, submissionGraph, authenticationConfiguration);
-    res.status(201).send({submission: submissionUri, job: jobUri}).end();
+      // check if the resource has already been submitted
+      if (await isSubmitted(submittedResource, submissionGraph)) {
+        res.status(409).send({
+          errors: [{
+            title: `The given submittedResource <${submittedResource}> has already been submitted.`
+          }]
+        }).end();
+        return;
+      }
+
+      // process the new auto-submission
+      const { submissionUri, jobUri } = await storeSubmission(triples, submissionGraph, authenticationConfiguration);
+      res.status(201).send({submission: submissionUri, job: jobUri}).end();
+    }
   } catch (e) {
     console.error(e.message);
     if (!e.alreadyStoredError) {
-      const detail = JSON.stringify(
-        {
-          err: e.message,
-          req: cleanseRequestBody(req.body),
-        },
-        undefined,
-        2
-      );
+      const detail = JSON.stringify( {
+        err: e.message,
+        req: cleanseRequestBody(req.body)
+      }, undefined, 2);
       sendErrorAlert({
-        message:
-          'Something unexpected went wrong while processing an auto-submission request.',
+        message: 'Something unexpected went wrong while processing an auto-submission request.',
         detail,
-        reference: e.reference,
       });
     }
-    res
-      .status(500)
-      .send(
-        `An error happened while processing the auto-submission request. If this keeps occurring for no good reason, please contact us at digitaalABB@vlaanderen.be. Please consult the technical error below.\n${e.message}`
-      )
-      .end();
+    res.status(400).send({
+      errors: [{
+        title: 'Something unexpected happened while processing the auto-submission request. ' +
+          'If this keeps occurring, please contact us at digitaalABB@vlaanderen.be.'
+      }]
+    }).end();
   }
 });
 
@@ -195,39 +236,6 @@ function ensureValidContentType(contentType) {
     );
 }
 
-function ensureValidDataType(body) {
-  if (body instanceof Array)
-    throw new Error(
-      'Invalid JSON payload, expected an object but found array.'
-    );
-}
-
-function ensureMinimalRegisterPayload(object) {
-  for (const prop in object)
-    if (!object[prop] && prop != 'authenticationConfiguration')
-      throw new Error(
-        `Invalid JSON-LD payload: property "${prop}" is missing or invalid.`
-      );
-}
-
-function ensureValidRegisterProperties(object) {
-  const { isValid, errors } = validateExtractedInfo(object);
-  if (!isValid)
-    throw new Error(
-      `Some given properties are invalid:\n${errors
-        .map((e) => e.message)
-        .join('\n')}
-      `
-    );
-}
-
-async function ensureNotSubmitted(submittedResource, submissionGraph) {
-  if (await isSubmitted(submittedResource, submissionGraph))
-    throw new Error(
-      `The given submittedResource <${submittedResource}> has already been submitted.`
-    );
-}
-
 async function ensureAuthorisation(store) {
   const authentication = extractAuthentication(store);
   if (
@@ -245,14 +253,10 @@ async function ensureAuthorisation(store) {
     authentication.key,
     authentication.organisation
   );
-  if (!organisationID) {
-    const error = new Error(
-      'Authentication failed, vendor does not have access to the organization or does not exist. If this should not be the case, please contact us at digitaalABB@vlaanderen.be for login credentials.'
+  if (!organisationID)
+    throw new Error(
+      'Authentication failed, vendor does not have access to the organization or does not exist.'
     );
-    error.reference = authentication.vendor;
-    throw error;
-  }
-  return organisationID;
 }
 
 async function jsonLdToStore(jsonLdObject) {

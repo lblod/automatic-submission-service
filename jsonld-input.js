@@ -1,3 +1,4 @@
+import _ from 'lodash';
 import { uuid } from 'mu';
 import * as env from './env.js';
 import { SubmissionRegistrationContext } from './SubmissionRegistrationContext.js';
@@ -50,30 +51,32 @@ export async function enrichBodyForStatus(body) {
   return body;
 }
 
-export function extractInfoFromTriplesForRegister(store) {
-  const locationHrefs = store.getObjects(
-    undefined,
-    namedNode('http://www.w3.org/ns/prov#atLocation')
-  );
-  const submittedResources = store.getObjects(
-    undefined,
-    namedNode('http://purl.org/dc/terms/subject')
-  );
-  const statuses = store.getObjects(
-    undefined,
-    namedNode('http://www.w3.org/ns/adms#status')
-  );
-  const authenticationConfigurations = store.getObjects(
-    undefined,
-    namedNode(
-      'http://lblod.data.gift/vocabularies/security/targetAuthenticationConfiguration'
-    )
-  );
+export function extractInfoFromTriplesForRegister(triples) {
+  const key = _.get(triples.find(
+    (triple) => triple.predicate.value === 'http://mu.semte.ch/vocabularies/account/key'), "object.value");
+
+  const vendor = _.get(triples.find(
+    (triple) => triple.predicate.value === 'http://purl.org/pav/providedBy'), "object.value");
+
+  const organisation = _.get(triples.find(
+    (triple) => triple.predicate.value === 'http://purl.org/pav/createdBy'), "object.value");
+
+  const submittedResource = _.get(triples.find(
+    (triple) => triple.predicate.value === 'http://purl.org/dc/terms/subject'), "object.value");
+
+  const status = _.get(triples.find(
+    (triple) => triple.predicate.value === 'http://www.w3.org/ns/adms#status'), "object.value");
+
+  const authenticationConfiguration = _.get(triples.find(
+    (triple) => triple.predicate.value === 'http://lblod.data.gift/vocabularies/security/targetAuthenticationConfiguration'), "object.value");
+
   return {
-    submittedResource: submittedResources[0]?.value,
-    status: statuses[0]?.value,
-    authenticationConfiguration: authenticationConfigurations[0]?.value,
-    href: locationHrefs[0]?.value,
+    key,
+    vendor,
+    organisation,
+    submittedResource,
+    status,
+    authenticationConfiguration
   };
 }
 
@@ -98,10 +101,10 @@ export function extractAuthentication(store) {
 }
 
 export function validateExtractedInfo(extracted) {
-  const { status } = extracted;
+  const {status} = extracted;
   const errors = [];
   if (status !== env.CONCEPT_STATUS && status !== env.SUBMITTABLE_STATUS)
-    errors.push({ message: 'Property status is not valid.' });
+    errors.push({title: `property status is not valid.`});
 
-  return { isValid: errors.length === 0, errors };
+  return {isValid: errors.length === 0, errors};
 }
