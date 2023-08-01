@@ -58,6 +58,7 @@ export const PREFIX_TABLE = {
   tasko:        'http://lblod.data.gift/id/jobs/concept/TaskOperation/',
   jobo:         'http://lblod.data.gift/id/jobs/concept/JobOperation/',
   hrvst:        'http://lblod.data.gift/vocabularies/harvesting/',
+  oslc:         'http://open-services.net/ns/core#',
 };
 
 export const PREFIXES = (() => {

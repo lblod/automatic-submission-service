@@ -10,6 +10,7 @@ import {
   validateExtractedInfo,
 } from './jsonld-input.js';
 import * as env from './env.js';
+import * as config from './config';
 import { getTaskInfoFromRemoteDataObject, downloadTaskUpdate } from './downloadTaskManagement.js';
 import { getSubmissionStatusRdfJS } from './jobAndTaskManagement.js';
 import { Lock } from 'async-await-mutex-lock';
@@ -49,15 +50,21 @@ app.post('/melding', async function (req, res) {
     // check if the resource has already been submitted
     await ensureNotSubmitted(submittedResource);
 
+    const submissionGraph = config.GRAPH_TEMPLATE.replace('~ORGANIZATION_ID~', organisationID);
+
+    // check if the resource has already been submitted
+    if (await isSubmitted(submittedResource, submissionGraph)) {
+      res.status(409).send({
+        errors: [{
+          title: `The given submittedResource <${submittedResource}> has already been submitted.`
+        }]
+      }).end();
+      return;
+    }
+
     // process the new auto-submission
-    const submissionGraph = `http://mu.semte.ch/graphs/organizations/${organisationID}/LoketLB-toezichtGebruiker`;
-    const { submissionUri, jobUri } = await storeSubmission(
-      store,
-      submissionGraph,
-      submissionGraph,
-      authenticationConfiguration
-    );
-    res.status(201).send({ submission: submissionUri, job: jobUri }).end();
+    const { submissionUri, jobUri } = await storeSubmission(triples, submissionGraph, authenticationConfiguration);
+    res.status(201).send({submission: submissionUri, job: jobUri}).end();
   } catch (e) {
     console.error(e.message);
     if (!e.alreadyStoredError) {
@@ -103,7 +110,16 @@ app.post('/download-status-update', async function (req, res) {
     for (const remoteDataObjectTriple of actualStatusChange) {
       const { downloadTaskUri, jobUri, oldStatus, submissionGraph, fileUri, errorMsg } = await getTaskInfoFromRemoteDataObject(remoteDataObjectTriple.subject.value);
       //Update the status also passing the old status to not make any illegal updates
-      await downloadTaskUpdate(submissionGraph, downloadTaskUri, jobUri, oldStatus, remoteDataObjectTriple.object.value, remoteDataObjectTriple.subject.value, fileUri, errorMsg);
+      if (jobUri)
+        await downloadTaskUpdate(
+          submissionGraph,
+          downloadTaskUri,
+          jobUri,
+          oldStatus,
+          remoteDataObjectTriple.object.value,
+          remoteDataObjectTriple.subject.value,
+          fileUri,
+          errorMsg);
     }
     res.status(200).send().end();
   }
