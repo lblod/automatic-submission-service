@@ -27,7 +27,7 @@ export async function isSubmitted(resource, submissionGraph) {
 function extractSubmissionUrl(store) {
   const submissionUrls = store.getSubjects(
     namedNode('http://www.w3.org/1999/02/22-rdf-syntax-ns#type'),
-    namedNode('http://rdf.myexperiment.org/ontologies/base/Submission')
+    namedNode('http://rdf.myexperiment.org/ontologies/base/Submission'),
   );
   return submissionUrls[0]?.value;
 }
@@ -35,7 +35,7 @@ function extractSubmissionUrl(store) {
 function findSubmittedResource(store) {
   const submittedResources = store.getObjects(
     undefined,
-    namedNode('http://purl.org/dc/terms/subject')
+    namedNode('http://purl.org/dc/terms/subject'),
   );
   return submittedResources[0]?.value;
 }
@@ -43,7 +43,7 @@ function findSubmittedResource(store) {
 function extractLocationUrl(store) {
   const locations = store.getObjects(
     undefined,
-    namedNode('http://www.w3.org/ns/prov#atLocation')
+    namedNode('http://www.w3.org/ns/prov#atLocation'),
   );
   return locations[0]?.value;
 }
@@ -51,7 +51,7 @@ function extractLocationUrl(store) {
 function extractMeldingUri(store) {
   const submissionUris = store.getSubjects(
     undefined,
-    namedNode('http://rdf.myexperiment.org/ontologies/base/Submission')
+    namedNode('http://rdf.myexperiment.org/ontologies/base/Submission'),
   );
   return submissionUris[0]?.value;
 }
@@ -59,7 +59,7 @@ function extractMeldingUri(store) {
 async function storeToTurtle(store) {
   const vendors = store.getObjects(
     undefined,
-    namedNode('http://purl.org/pav/providedBy')
+    namedNode('http://purl.org/pav/providedBy'),
   );
   const vendor = vendors[0];
   const storeCopy = new N3.Store();
@@ -80,13 +80,13 @@ async function storeToTurtle(store) {
 export async function storeSubmission(
   store,
   submissionGraph,
-  authenticationConfiguration
+  authenticationConfiguration,
 ) {
   let newAuthConf = {};
   const meldingUri = extractMeldingUri(store);
   const { jobUri, automaticSubmissionTaskUri } = await jobsAndTasks.startJob(
     submissionGraph,
-    meldingUri
+    meldingUri,
   );
   try {
     const submittedResource = findSubmittedResource(store);
@@ -132,7 +132,7 @@ export async function storeSubmission(
     newAuthConf = await attachClonedAuthenticationConfiguraton(
       remoteDataUri,
       meldingUri,
-      submissionGraph
+      submissionGraph,
     );
 
     await update(`
@@ -180,13 +180,13 @@ export async function storeSubmission(
       submissionGraph,
       automaticSubmissionTaskUri,
       jobUri,
-      remoteDataUri
+      remoteDataUri,
     );
 
     return { submissionUri: meldingUri, jobUri };
   } catch (e) {
     console.error(
-      `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${automaticSubmissionTaskUri}.`
+      `Something went wrong during the storage of submission ${meldingUri}. This is monitored via task ${automaticSubmissionTaskUri}.`,
     );
     console.error(e.message);
     console.info('Cleaning credentials');
@@ -198,7 +198,7 @@ export async function storeSubmission(
       submissionGraph,
       automaticSubmissionTaskUri,
       jobUri,
-      errorUri
+      errorUri,
     );
     e.alreadyStoredError = true;
     if (authenticationConfiguration)
@@ -213,7 +213,7 @@ export async function storeSubmission(
 async function attachClonedAuthenticationConfiguraton(
   remoteDataObjectUri,
   submissionUri,
-  submissionGraph
+  submissionGraph,
 ) {
   const getInfoQuery = `
     ${env.PREFIXES}
@@ -418,7 +418,7 @@ export async function sendErrorAlert({ message, detail, reference }) {
     return uri;
   } catch (e) {
     console.warn(
-      `[WARN] Something went wrong while trying to store an error.\nMessage: ${e}\nQuery: ${q}`
+      `[WARN] Something went wrong while trying to store an error.\nMessage: ${e}\nQuery: ${q}`,
     );
   }
 }

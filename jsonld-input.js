@@ -67,21 +67,21 @@ export async function enrichBodyForStatus(body) {
 export function extractInfoFromTriplesForRegister(store) {
   const locationHrefs = store.getObjects(
     undefined,
-    namedNode('http://www.w3.org/ns/prov#atLocation')
+    namedNode('http://www.w3.org/ns/prov#atLocation'),
   );
   const submittedResources = store.getObjects(
     undefined,
-    namedNode('http://purl.org/dc/terms/subject')
+    namedNode('http://purl.org/dc/terms/subject'),
   );
   const statuses = store.getObjects(
     undefined,
-    namedNode('http://www.w3.org/ns/adms#status')
+    namedNode('http://www.w3.org/ns/adms#status'),
   );
   const authenticationConfigurations = store.getObjects(
     undefined,
     namedNode(
-      'http://lblod.data.gift/vocabularies/security/targetAuthenticationConfiguration'
-    )
+      'http://lblod.data.gift/vocabularies/security/targetAuthenticationConfiguration',
+    ),
   );
   return {
     submittedResource: submittedResources[0]?.value,
@@ -94,15 +94,15 @@ export function extractInfoFromTriplesForRegister(store) {
 export function extractAuthentication(store) {
   const keys = store.getObjects(
     undefined,
-    namedNode('http://mu.semte.ch/vocabularies/account/key')
+    namedNode('http://mu.semte.ch/vocabularies/account/key'),
   );
   const vendors = store.getObjects(
     undefined,
-    namedNode('http://purl.org/pav/providedBy')
+    namedNode('http://purl.org/pav/providedBy'),
   );
   const organisations = store.getObjects(
     undefined,
-    namedNode('http://purl.org/pav/createdBy')
+    namedNode('http://purl.org/pav/createdBy'),
   );
   return {
     key: keys[0]?.value,

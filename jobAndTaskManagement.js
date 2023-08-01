@@ -167,7 +167,7 @@ export async function getSubmissionStatusRdfJS(submissionUri) {
   const sparqlJsonParser = new SparqlJsonParser();
   const parsedResults = sparqlJsonParser.parseJsonResults(response);
   const statusRdfJSTriples = parsedResults.map((binding) =>
-    quad(binding.s, binding.p, binding.o)
+    quad(binding.s, binding.p, binding.o),
   );
   return { statusRdfJSTriples, JobStatusContext, JobStatusFrame };
 }
@@ -176,11 +176,11 @@ export async function automaticSubmissionTaskSuccess(
   submissionGraph,
   automaticSubmissionTaskUri,
   jobUri,
-  remoteDataObjectUri
+  remoteDataObjectUri,
 ) {
   const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
   const automaticSubmissionTaskUriSparql = sparqlEscapeUri(
-    automaticSubmissionTaskUri
+    automaticSubmissionTaskUri,
   );
   const resultContainerUuid = uuid();
   const harvestingCollectionUuid = uuid();
@@ -228,11 +228,11 @@ export async function automaticSubmissionTaskFail(
   submissionGraph,
   automaticSubmissionTaskUri,
   jobUri,
-  errorUri
+  errorUri,
 ) {
   const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
   const automaticSubmissionTaskUriSparql = sparqlEscapeUri(
-    automaticSubmissionTaskUri
+    automaticSubmissionTaskUri,
   );
   const errorUriSparql = sparqlEscapeUri(errorUri);
   const assTaskQuery = `

@@ -30,7 +30,7 @@ export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
   if (results.length > 0) results = results[0];
   else {
     const err = new Error(
-      `Could not find task and other necessary related information for remote data object ${remoteDataObjectUri}.`
+      `Could not find task and other necessary related information for remote data object ${remoteDataObjectUri}.`,
     );
     err.alreadyStoredError = true; //No need to store the error
     throw err;
@@ -53,7 +53,7 @@ export async function downloadTaskUpdate(
   newDLStatus,
   logicalFileUri,
   physicalFileUri,
-  errorMsg
+  errorMsg,
 ) {
   switch (newDLStatus) {
     case env.DOWNLOAD_STATUSES.ongoing:
@@ -68,12 +68,12 @@ export async function downloadTaskUpdate(
         await complementLogicalFileMetaData(
           submissionGraph,
           physicalFileUri,
-          logicalFileUri
+          logicalFileUri,
         );
         return downloadSuccess(
           submissionGraph,
           downloadTaskUri,
-          logicalFileUri
+          logicalFileUri,
         );
       }
       break;
@@ -87,12 +87,12 @@ export async function downloadTaskUpdate(
           downloadTaskUri,
           jobUri,
           logicalFileUri,
-          errorMsg
+          errorMsg,
         );
       break;
   }
   const err = new Error(
-    `Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`
+    `Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`,
   );
   err.alreadyStoredError = true; //No need to store the error
   throw err;
@@ -105,7 +105,7 @@ export async function downloadTaskUpdate(
 async function complementLogicalFileMetaData(
   submissionGraph,
   physicalFileUri,
-  logicalFileUri
+  logicalFileUri,
 ) {
   const submissionGraphSparql = sparqlEscapeUri(submissionGraph);
   return update(`
@@ -138,7 +138,7 @@ async function complementLogicalFileMetaData(
 export async function downloadTaskCreate(
   submissionGraph,
   jobUri,
-  remoteDataObjectUri
+  remoteDataObjectUri,
 ) {
   const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
   const downloadTaskUuid = uuid();
@@ -212,7 +212,7 @@ async function downloadStarted(submissionGraph, downloadTaskUri) {
 async function downloadSuccess(
   submissionGraph,
   downloadTaskUri,
-  logicalFileUri
+  logicalFileUri,
 ) {
   const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
   const resultContainerUuid = uuid();
@@ -255,7 +255,7 @@ async function downloadFail(
   downloadTaskUri,
   jobUri,
   logicalFileUri,
-  errorMsg
+  errorMsg,
 ) {
   const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
   const downloadTaskUriSparql = sparqlEscapeUri(downloadTaskUri);
