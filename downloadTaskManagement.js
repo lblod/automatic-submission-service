@@ -28,10 +28,11 @@ export async function getTaskInfoFromRemoteDataObject(remoteDataObjectUri) {
   const response = await query(taskQuery);
   let results = response.results.bindings;
   if (results.length > 0) results = results[0];
-  else
-    throw new Error(
-      `Could not find task and other necessary related information for remote data object ${remoteDataObjectUri}.`
-    );
+  else {
+    const err = new Error(`Could not find task and other necessary related information for remote data object ${remoteDataObjectUri}.`);
+    err.alreadyStoredError = true; //No need to store the error
+    throw err;
+  }
   return {
     downloadTaskUri: results.task.value,
     jobUri: results.job.value,
@@ -88,9 +89,9 @@ export async function downloadTaskUpdate(
         );
       break;
   }
-  throw new Error(
-    `Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`
-  );
+  const err = new Error(`Download task ${downloadTaskUri} is being set to an unknown status ${newDLStatus} OR the transition to that status from ${oldASSStatus} is not allowed. This is related to job ${jobUri}.`);
+  err.alreadyStoredError = true; //No need to store the error
+  throw err;
 }
 
 //TODO in the future: maybe remove if better implemented in download-url-service

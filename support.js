@@ -10,14 +10,17 @@ import * as jobsAndTasks from './jobAndTaskManagement.js';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
-export async function isSubmitted(resource) {
+async function isSubmitted(resource, submissionGraph) {
   const result = await query(`
-    PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
+      PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
-    SELECT (COUNT(*) as ?count)
-    WHERE {
-        ${sparqlEscapeUri(resource)} ?p ?o .
-    }`);
+      SELECT (COUNT(*) as ?count)
+      WHERE {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+          ${sparqlEscapeUri(resource)} ?p ?o .
+        }
+      }
+    `);
   return parseInt(result.results.bindings[0].count.value) > 0;
 }
 
@@ -74,12 +77,7 @@ async function storeToTurtle(store) {
   return ttl;
 }
 
-export async function storeSubmission(
-  store,
-  submissionGraph,
-  fileGraph,
-  authenticationConfiguration
-) {
+async function storeSubmission(store, submissionGraph, authenticationConfiguration) {
   let newAuthConf = {};
   const meldingUri = extractMeldingUri(store);
   const { jobUri, automaticSubmissionTaskUri } = await jobsAndTasks.startJob(
@@ -127,16 +125,12 @@ export async function storeSubmission(
     // E.g. after import-submission we're quite sure. But what if something goes wrong before that, or a download just takes longer.
     // The highly aync process makes it complicated
     // Note: probably some clean up background job might be needed. Needs perhaps a bit of better thinking
-    newAuthConf = await attachClonedAuthenticationConfiguraton(
-      remoteDataUri,
-      meldingUri,
-      fileGraph
-    );
+    newAuthConf = await attachClonedAuthenticationConfiguraton(remoteDataUri, meldingUri, submissionGraph);
 
     await update(`
       ${env.PREFIXES}
       INSERT DATA {
-        GRAPH ${sparqlEscapeUri(fileGraph)} {
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
           ${sparqlEscapeUri(remoteDataUri)}
             a nfo:RemoteDataObject,
               nfo:FileDataObject;
@@ -206,21 +200,16 @@ export async function storeSubmission(
   }
 }
 
-async function attachClonedAuthenticationConfiguraton(
-  remoteDataObjectUri,
-  submissionUri,
-  remoteObjectGraph
-) {
+async function attachClonedAuthenticationConfiguraton(remoteDataObjectUri, submissionUri, submissionGraph) {
   const getInfoQuery = `
     ${env.PREFIXES}
     SELECT DISTINCT ?graph ?secType ?authenticationConfiguration WHERE {
-      GRAPH ?graph {
-        ${sparqlEscapeUri(submissionUri)}
-          dgftSec:targetAuthenticationConfiguration ?authenticationConfiguration .
-        ?authenticationConfiguration
-          dgftSec:securityConfiguration/rdf:type ?secType .
-      }
-    }`;
+     GRAPH ${sparqlEscapeUri(submissionGraph)} {
+       ${sparqlEscapeUri(submissionUri)} dgftSec:targetAuthenticationConfiguration ?authenticationConfiguration.
+       ?authenticationConfiguration dgftSec:securityConfiguration/rdf:type ?secType .
+     }
+    }
+  `;
 
   const authData = parseResult(await query(getInfoQuery))[0];
   const newAuthConf = `http://data.lblod.info/authentications/${uuid()}`;
@@ -235,16 +224,10 @@ async function attachClonedAuthenticationConfiguraton(
     cloneQuery = `
       ${env.PREFIXES}
       INSERT {
-        GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
-          ${sparqlEscapeUri(remoteDataObjectUri)}
-            dgftSec:targetAuthenticationConfiguration
-              ${sparqlEscapeUri(newAuthConf)} .
-        }
-        GRAPH ${sparqlEscapeUri(authData.graph)} {
-          ${sparqlEscapeUri(newAuthConf)}
-            dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
-          ${sparqlEscapeUri(newCreds)}
-            meb:username ?user ;
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(newAuthConf)} .
+          ${sparqlEscapeUri(newAuthConf)} dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
+          ${sparqlEscapeUri(newCreds)} meb:username ?user ;
             muAccount:password ?pass .
           ${sparqlEscapeUri(newAuthConf)}
             dgftSec:securityConfiguration ${sparqlEscapeUri(newConf)} .
@@ -253,31 +236,23 @@ async function attachClonedAuthenticationConfiguraton(
         }
       }
       WHERE {
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
-          dgftSec:securityConfiguration ?srcConfg.
-        ?srcConfg
-          ?srcConfP ?srcConfO.
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
-          dgftSec:secrets ?srcSecrets.
-        ?srcSecrets
-          meb:username ?user ;
-          muAccount:password ?pass .
-     }
-   `;
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+          ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:securityConfiguration ?srcConfg.
+          ?srcConfg ?srcConfP ?srcConfO.
+
+          ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:secrets ?srcSecrets.
+          ?srcSecrets  meb:username ?user ;
+            muAccount:password ?pass .
+        }
+     }`;
   } else if (authData.secType == env.OAUTH2) {
     cloneQuery = `
       ${env.PREFIXES}
       INSERT {
-        GRAPH ${sparqlEscapeUri(remoteObjectGraph)} {
-          ${sparqlEscapeUri(remoteDataObjectUri)}
-            dgftSec:targetAuthenticationConfiguration
-              ${sparqlEscapeUri(newAuthConf)} .
-        }
-        GRAPH ${sparqlEscapeUri(authData.graph)} {
-          ${sparqlEscapeUri(newAuthConf)}
-            dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
-          ${sparqlEscapeUri(newCreds)}
-            dgftOauth:clientId ?clientId ;
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+          ${sparqlEscapeUri(remoteDataObjectUri)} dgftSec:targetAuthenticationConfiguration ${sparqlEscapeUri(newAuthConf)} .
+          ${sparqlEscapeUri(newAuthConf)} dgftSec:secrets ${sparqlEscapeUri(newCreds)} .
+          ${sparqlEscapeUri(newCreds)} dgftOauth:clientId ?clientId ;
             dgftOauth:clientSecret ?clientSecret .
           ${sparqlEscapeUri(newAuthConf)}
             dgftSec:securityConfiguration ${sparqlEscapeUri(newConf)} .
@@ -286,15 +261,14 @@ async function attachClonedAuthenticationConfiguraton(
         }
       }
       WHERE {
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
-          dgftSec:securityConfiguration ?srcConfg .
-        ?srcConfg
-          ?srcConfP ?srcConfO .
-        ${sparqlEscapeUri(authData.authenticationConfiguration)}
-          dgftSec:secrets ?srcSecrets .
-        ?srcSecrets
-          dgftOauth:clientId ?clientId ;
-          dgftOauth:clientSecret ?clientSecret .
+        GRAPH ${sparqlEscapeUri(submissionGraph)} {
+          ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:securityConfiguration ?srcConfg.
+          ?srcConfg ?srcConfP ?srcConfO.
+
+          ${sparqlEscapeUri(authData.authenticationConfiguration)} dgftSec:secrets ?srcSecrets.
+          ?srcSecrets  dgftOauth:clientId ?clientId ;
+            dgftOauth:clientSecret ?clientSecret .
+        }
      }`;
   } else {
     throw `Unsupported Security type ${authData.secType}`;
