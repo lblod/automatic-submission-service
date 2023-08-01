@@ -47,13 +47,13 @@ app.post('/melding', async function (req, res) {
     // authenticate vendor
     const organisationID = await ensureAuthorisation(store);
 
-    // check if the resource has already been submitted
-    await ensureNotSubmitted(submittedResource);
-
     const submissionGraph = config.GRAPH_TEMPLATE.replace('~ORGANIZATION_ID~', organisationID);
 
+    // check if the resource has already been submitted
+    await ensureNotSubmitted(submittedResource, submissionGraph);
+
     // process the new auto-submission
-    const { submissionUri, jobUri } = await storeSubmission(triples, submissionGraph, authenticationConfiguration);
+    const { submissionUri, jobUri } = await storeSubmission(store, submissionGraph, authenticationConfiguration);
     res.status(201).send({submission: submissionUri, job: jobUri}).end();
   } catch (e) {
     console.error(e.message);
@@ -221,8 +221,8 @@ function ensureValidRegisterProperties(object) {
     );
 }
 
-async function ensureNotSubmitted(submittedResource) {
-  if (await isSubmitted(submittedResource))
+async function ensureNotSubmitted(submittedResource, submissionGraph) {
+  if (await isSubmitted(submittedResource, submissionGraph))
     throw new Error(
       `The given submittedResource <${submittedResource}> has already been submitted.`
     );
