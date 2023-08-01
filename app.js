@@ -5,7 +5,7 @@ import {
   isSubmitted,
   sendErrorAlert,
   cleanseRequestBody,
-} from './support.js';
+} from './support';
 import bodyParser from 'body-parser';
 import * as jsonld from 'jsonld';
 import {
@@ -14,14 +14,14 @@ import {
   extractInfoFromTriplesForRegister,
   extractAuthentication,
   validateExtractedInfo,
-} from './jsonld-input.js';
-import * as env from './env.js';
+} from './jsonld-input';
+import * as env from './env';
 import * as config from './config';
 import {
   getTaskInfoFromRemoteDataObject,
   downloadTaskUpdate,
-} from './downloadTaskManagement.js';
-import { getSubmissionStatusRdfJS } from './jobAndTaskManagement.js';
+} from './downloadTaskManagement';
+import { getSubmissionStatusRdfJS } from './jobAndTaskManagement';
 import { Lock } from 'async-await-mutex-lock';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;

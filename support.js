@@ -5,8 +5,8 @@ import {
   sparqlEscapeDateTime,
   sparqlEscapeUri,
 } from 'mu';
-import * as env from './env.js';
-import * as jobsAndTasks from './jobAndTaskManagement.js';
+import * as env from './env';
+import * as jobsAndTasks from './jobAndTaskManagement';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 

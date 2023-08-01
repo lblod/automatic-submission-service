@@ -1,4 +1,4 @@
-import * as env from './env.js';
+import * as env from './env';
 import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import {
   uuid,

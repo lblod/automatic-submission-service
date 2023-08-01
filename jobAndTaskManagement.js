@@ -1,4 +1,4 @@
-import * as env from './env.js';
+import * as env from './env';
 import { querySudo as query, updateSudo as update } from '@lblod/mu-auth-sudo';
 import {
   uuid,
@@ -6,7 +6,7 @@ import {
   sparqlEscapeDateTime,
   sparqlEscapeUri,
 } from 'mu';
-import { downloadTaskCreate } from './downloadTaskManagement.js';
+import { downloadTaskCreate } from './downloadTaskManagement';
 import { SparqlJsonParser } from 'sparqljson-parse';
 import * as N3 from 'n3';
 const { quad } = N3.DataFactory;

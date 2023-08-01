@@ -1,6 +1,6 @@
 import { uuid } from 'mu';
-import * as env from './env.js';
-import { SubmissionRegistrationContext } from './SubmissionRegistrationContext.js';
+import * as env from './env';
+import { SubmissionRegistrationContext } from './SubmissionRegistrationContext';
 import * as N3 from 'n3';
 const { namedNode } = N3.DataFactory;
 
