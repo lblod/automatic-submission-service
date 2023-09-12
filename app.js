@@ -69,7 +69,10 @@ app.post('/melding', async function (req, res) {
       submissionGraph,
       authenticationConfiguration,
     );
-    res.status(201).send({ submission: submissionUri, job: jobUri }).end();
+    res
+      .status(201)
+      .send({ uri: submissionUri, submission: submissionUri, job: jobUri })
+      .end();
   } catch (e) {
     console.error(e.message);
     if (!e.alreadyStoredError) {
