@@ -69,7 +69,10 @@ app.post('/melding', async function (req, res) {
       submissionGraph,
       authenticationConfiguration,
     );
-    res.status(201).send({ submission: submissionUri, job: jobUri }).end();
+    res
+      .status(201)
+      .send({ uri: submissionUri, submission: submissionUri, job: jobUri })
+      .end();
   } catch (e) {
     console.error(e.message);
     if (!e.alreadyStoredError) {
@@ -89,9 +92,10 @@ app.post('/melding', async function (req, res) {
       });
     }
     res
-      .status(500)
+      .status(e.errorCode || 500)
       .send(
-        `An error happened while processing the auto-submission request. If this keeps occurring for no good reason, please contact us at digitaalABB@vlaanderen.be. Please consult the technical error below.\n${e.message}`,
+        e.errorBody ||
+          `An error happened while processing the auto-submission request. If this keeps occurring for no good reason, please contact us at digitaalABB@vlaanderen.be. Please consult the technical error below.\n${e.message}`,
       )
       .end();
   }
@@ -218,43 +222,65 @@ app.post('/status', statusLimiter, async function (req, res) {
 ///////////////////////////////////////////////////////////////////////////////
 
 function ensureValidContentType(contentType) {
-  if (!/application\/(ld\+)?json/.test(contentType))
-    throw new Error(
+  if (!/application\/(ld\+)?json/.test(contentType)) {
+    const err = new Error(
       'Content-Type not valid, only application/json or application/ld+json are accepted',
     );
+    err.errorCode = 400;
+    err.errorBody = { errors: [{ title: err.message }] };
+    throw err;
+  }
 }
 
 function ensureValidDataType(body) {
-  if (body instanceof Array)
-    throw new Error(
+  if (body instanceof Array) {
+    const err = new Error(
       'Invalid JSON payload, expected an object but found array.',
     );
+    err.errorCode = 400;
+    err.errorBody = { errors: [{ title: err.message }] };
+    throw err;
+  }
 }
 
 function ensureMinimalRegisterPayload(object) {
   for (const prop in object)
-    if (!object[prop] && prop != 'authenticationConfiguration')
-      throw new Error(
+    if (!object[prop] && prop != 'authenticationConfiguration') {
+      const err = new Error(
         `Invalid JSON-LD payload: property "${prop}" is missing or invalid.`,
       );
+      err.errorCode = 400;
+      err.errorBody = {
+        errors: [{ title: err.message }],
+      };
+      throw err;
+    }
 }
 
 function ensureValidRegisterProperties(object) {
   const { isValid, errors } = validateExtractedInfo(object);
-  if (!isValid)
-    throw new Error(
+  if (!isValid) {
+    const err = new Error(
       `Some given properties are invalid:\n${errors
         .map((e) => e.message)
         .join('\n')}
-      `,
+        `,
     );
+    err.errorCode = 400;
+    err.errorBody = { errors };
+    throw err;
+  }
 }
 
 async function ensureNotSubmitted(submittedResource, submissionGraph) {
-  if (await isSubmitted(submittedResource, submissionGraph))
-    throw new Error(
+  if (await isSubmitted(submittedResource, submissionGraph)) {
+    const err = new Error(
       `The given submittedResource <${submittedResource}> has already been submitted.`,
     );
+    err.errorCode = 409;
+    err.errorBody = { errors: [{ title: err.message }] };
+    throw err;
+  }
 }
 
 async function ensureAuthorisation(store) {
@@ -265,10 +291,14 @@ async function ensureAuthorisation(store) {
       authentication.key &&
       authentication.organisation
     )
-  )
-    throw new Error(
+  ) {
+    const err = new Error(
       'The authentication (or part of it) for this request is missing. Make sure to supply publisher (with vendor URI and key) and organization information to the request.',
     );
+    err.errorCode = 400;
+    err.errorBody = { errors: [{ title: err.message }] };
+    throw err;
+  }
   const organisationID = await verifyKeyAndOrganisation(
     authentication.vendor,
     authentication.key,
@@ -278,6 +308,8 @@ async function ensureAuthorisation(store) {
     const error = new Error(
       'Authentication failed, vendor does not have access to the organization or does not exist. If this should not be the case, please contact us at digitaalABB@vlaanderen.be for login credentials.',
     );
+    error.errorCode = 401;
+    error.errorBody = { errors: [{ title: error.message }] };
     error.reference = authentication.vendor;
     throw error;
   }

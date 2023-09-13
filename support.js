@@ -377,8 +377,8 @@ export async function verifyKeyAndOrganisation(vendor, key, organisation) {
 
 export function cleanseRequestBody(body) {
   const cleansed = body;
-  delete cleansed.authentication;
-  delete cleansed.publisher.key;
+  if (cleansed?.authentication) delete cleansed.authentication;
+  if (cleansed?.publisher?.key) delete cleansed.publisher.key;
   return cleansed;
 }
 
