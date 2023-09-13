@@ -78,6 +78,37 @@ Content-Type: application/json # or application/ld+json
 Getting the status can be done in the same context as registering a submission,
 but supply a submission URI instead. Look at some examples below.
 
+### Responses
+
+The following responses can be returned by this service. Error messages are
+displayed next to the HTTP response code here, but in the actual response, the
+message is inside a structure like: `{"errors": [{"title": "...message..."}]}`.
+
+* `400 Content-Type not valid, only application/json or application/ld+json are
+  accepted`: when the content type is not correct. This service only accepts
+  JSON and JSON-LD content.
+* `400 Invalid JSON payload, expected an object but found array.`: when the
+  content structure is incorrect. Use properly formatted JSON.
+* `400 Invalid JSON-LD payload: property "XXX" is missing or invalid.`:
+  property `XXX` cound not be found in the request, but is needed.
+* `400 Some given properties are invalid: XXX`: `XXX` is a list of error
+  messages describing the problem with the given properties.
+* `409 The given submittedResource <URI> has already been submitted.`: when the
+  service can already find a submission for this URI. If you really need to
+  resend this submission, the previous submission has to be deleted first,
+  which is only possible if it is in "concept" status. The submission can then
+  be resent.
+* `400 The authentication (or part of it) for this request is missing. Make
+  sure to supply publisher (with vendor URI and key) and organization
+  information to the request.`: you need to supply at least `organization:
+  "<URI>", publisher: { uri: "<URI>", key: "XXX" }` with the correct
+  credentials to be able to post a submission.
+* `401 Authentication failed, vendor does not have access to the organization
+  or does not exist. If this should not be the case, please contact us at
+  digitaalABB@vlaanderen.be for login credentials.`: this is when the given
+  credentials are incorrect or these credentials do not allow for sending a
+  submission in this organisation.
+
 #### Examples
 
 ##### Submission with inline context
