@@ -11,7 +11,7 @@ Add the service to your `docker-compose.yml`:
 
 ```yaml
 automatic-submission:
-  image: lblod/automatic-submission-service:1.3.0
+  image: lblod/automatic-submission-service:1.3.1
 ```
 
 Configure the dispatcher by adding the following rule:
