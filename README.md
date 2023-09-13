@@ -78,7 +78,26 @@ Content-Type: application/json # or application/ld+json
 Getting the status can be done in the same context as registering a submission,
 but supply a submission URI instead. Look at some examples below.
 
-### Responses
+### Succesful response
+
+When the submission has been successfully sent in, you get the following response:
+
+```
+201 Created
+{
+  "uri": "http://data.lblod.info/submissions/e5725210-527b-11ee-bd48-c53e584duaa8",
+  "submission": "http://data.lblod.info/submissions/e5725210-527b-11ee-bd48-c53e584duaa8",
+  "job": "http://data.lblod.info/id/automatic-submission-job/e58a4fd0-522b-11ee-bd48-c56e584deaa8"
+}
+```
+
+The `uri` and `submission` properties are identical. The `uri` is there for
+backwards compatibility with an old version of this service. The `submission`
+and `job` properties contain the URIs for the newly created submission and the
+associated processing job respectively. These can be used in the [Vendor SPARQL
+API](https://lblod.github.io/pages-vendors/#/docs/vendor-sparql-api).
+
+### Error responses
 
 The following responses can be returned by this service. Error messages are
 displayed next to the HTTP response code here, but in the actual response, the
