@@ -12,6 +12,9 @@ export const ADMS_STATUS_PREDICATE = 'http://www.w3.org/ns/adms#status';
 
 export const JOB_PREFIX = 'http://data.lblod.info/id/automatic-submission-job/';
 
+export const SEND_ALERT_CLIENT_ERRORS =  process.env.SEND_ALERT_CLIENT_ERRORS ?
+  process.env.SEND_ALERT_CLIENT_ERRORS == "true" : true;
+
 export const DOWNLOAD_STATUSES = {
   scheduled: 'http://lblod.data.gift/file-download-statuses/sheduled',
   ongoing: 'http://lblod.data.gift/file-download-statuses/ongoing',

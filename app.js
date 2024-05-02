@@ -84,12 +84,15 @@ app.post('/melding', async function (req, res) {
         undefined,
         2,
       );
-      sendErrorAlert({
-        message:
-          'Something unexpected went wrong while processing an auto-submission request.',
-        detail,
-        reference: e.reference,
-      });
+
+      if(e.errorCode >= 500 || env.SEND_ALERT_CLIENT_ERRORS) {
+        sendErrorAlert({
+          message:
+            'Something unexpected went wrong while processing an auto-submission request.',
+          detail,
+          reference: e.reference,
+        });
+      }
     }
     res
       .status(e.errorCode || 500)
