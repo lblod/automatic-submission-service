@@ -21,6 +21,9 @@ match "/melding/*path" do
   Proxy.forward conn, path, "http://automatic-submission/melding"
 end
 ```
+#### Environment variables
+  - `AUTOMATIC_SUBMISSION_JSON_LD_CONTEXT_ENDPOINT`: defaults to 'https://lblod.data.gift/contexts/automatische-melding/v1/context.json'
+  - `SEND_ALERT_CLIENT_ERRORS`: defaults to `true`. Send alert in case client makes errors.
 
 ## How-to guides
 
@@ -30,7 +33,7 @@ To allow an organization to submit a publication on behalf of another
 organization, add a resource similar to the example below:
 
 ```sparql
-PREFIX muAccount: 	<http://mu.semte.ch/vocabularies/account/>
+PREFIX muAccount:   <http://mu.semte.ch/vocabularies/account/>
 PREFIX mu:   <http://mu.semte.ch/vocabularies/core/>
 PREFIX foaf: <http://xmlns.com/foaf/0.1/>
 PREFIX ext: <http://mu.semte.ch/vocabularies/ext/>
