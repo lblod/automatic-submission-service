@@ -61,7 +61,7 @@ app.post('/melding', async function (req, res) {
     );
 
     // check if the resource has already been submitted
-    await ensureNotSubmitted(submittedResource, submissionGraph);
+    await ensureNotSubmitted(submittedResource);
 
     // process the new auto-submission
     const { submissionUri, jobUri } = await storeSubmission(
@@ -275,8 +275,8 @@ function ensureValidRegisterProperties(object) {
   }
 }
 
-async function ensureNotSubmitted(submittedResource, submissionGraph) {
-  if (await isSubmitted(submittedResource, submissionGraph)) {
+async function ensureNotSubmitted(submittedResource) {
+  if (await isSubmitted(submittedResource)) {
     const err = new Error(
       `The given submittedResource <${submittedResource}> has already been submitted.`,
     );

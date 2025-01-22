@@ -16,9 +16,7 @@ export async function isSubmitted(resource, submissionGraph) {
 
       SELECT (COUNT(*) as ?count)
       WHERE {
-        GRAPH ${sparqlEscapeUri(submissionGraph)} {
-          ${sparqlEscapeUri(resource)} ?p ?o .
-        }
+        ${sparqlEscapeUri(resource)} ?p ?o .
       }
     `);
   return parseInt(result.results.bindings[0].count.value) > 0;
