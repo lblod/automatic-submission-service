@@ -42,7 +42,7 @@ INSERT DATA {
   GRAPH <http://mu.semte.ch/graphs/automatic-submission> {
     <http://example.com/vendor/d3c9e5e5-d50c-46c9-8f09-6af76712c277>
       a foaf:Agent, ext:Vendor ;
-      muAccount:key "my-super-secret-key";
+      muAccount:keyHash "my-super-secret-key-hash";
       muAccount:canActOnBehalfOf
         <http://data.lblod.info/id/bestuurseenheden/d64157ef-bde2-4814-b77a-2d43ce90d>;
       foaf:name "Test vendor";
