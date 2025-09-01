@@ -4,12 +4,13 @@
   "description": "Microservice providing an API for external parties to process inzendingen voor toezicht.",
   "dependencies": {
     "@lblod/mu-auth-sudo": "^0.6.0",
+    "argon2": "^0.44.0",
     "async-await-mutex-lock": "^1.0.9",
+    "env-var": "^7.3.0",
     "express-rate-limit": "^6.6.0",
     "jsonld": "^8.1.0",
     "n3": "^1.16.2",
-    "sparqljson-parse": "^2.1.1",
-    "env-var": "^7.3.0"
+    "sparqljson-parse": "^2.1.1"
   },
   "devDependencies": {
     "eslint": "^8.23.1",
