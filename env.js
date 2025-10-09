@@ -35,6 +35,8 @@ export const OAUTH2 =
 export const CREATOR =
   'http://lblod.data.gift/services/automatic-submission-service';
 
+export const USE_HASHED_KEY = process.env.USE_HASHED_KEY === 'true';
+
 export const PREFIX_TABLE = {
   meb: 'http://rdf.myexperiment.org/ontologies/base/',
   rdf: 'http://www.w3.org/1999/02/22-rdf-syntax-ns#',

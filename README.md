@@ -24,6 +24,7 @@ end
 #### Environment variables
   - `AUTOMATIC_SUBMISSION_JSON_LD_CONTEXT_ENDPOINT`: defaults to 'https://lblod.data.gift/contexts/automatische-melding/v1/context.json'
   - `SEND_ALERT_CLIENT_ERRORS`: defaults to `true`. Send alert in case client makes errors.
+  - `USE_HASHED_KEY`: if set to `'true'`, the service will match the provided key against the hash stored in the DB. Disabled by default.
 
 ## How-to guides
 
