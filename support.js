@@ -357,28 +357,47 @@ export function parseResult(result) {
 }
 
 export async function verifyKeyAndOrganisation(vendor, key, organisation) {
-  const result = await query(`
-    ${env.PREFIXES}
-    SELECT DISTINCT ?organisationID ?agentHash WHERE  {
-      GRAPH <http://mu.semte.ch/graphs/automatic-submission> {
-        ${sparqlEscapeUri(vendor)}
-          a foaf:Agent;
-          muAccount:keyHash ?agentHash;
-          muAccount:canActOnBehalfOf ${sparqlEscapeUri(organisation)}.
-      }
-      ${sparqlEscapeUri(organisation)}
-        mu:uuid ?organisationID.
-    }`);
-  if (result.results.bindings.length === 1) {
-    const vendorKeyHash = result.results.bindings[0].agentHash.value;
-    try {
-      if (await argon2.verify(vendorKeyHash, key)) {
-        return result.results.bindings[0].organisationID.value;
-      } else {
+  if(env.USE_HASHED_KEY) {
+    const result = await query(`
+      ${env.PREFIXES}
+      SELECT DISTINCT ?organisationID ?agentHash WHERE  {
+        GRAPH <http://mu.semte.ch/graphs/automatic-submission> {
+          ${sparqlEscapeUri(vendor)}
+            a foaf:Agent;
+            muAccount:keyHash ?agentHash;
+            muAccount:canActOnBehalfOf ${sparqlEscapeUri(organisation)}.
+        }
+        ${sparqlEscapeUri(organisation)}
+          mu:uuid ?organisationID.
+      }`);
+    if (result.results.bindings.length === 1) {
+      const vendorKeyHash = result.results.bindings[0].agentHash.value;
+      try {
+        if (await argon2.verify(vendorKeyHash, key)) {
+          return result.results.bindings[0].organisationID.value;
+        } else {
+          return null;
+        }
+      } catch (err) {
         return null;
       }
-    } catch (err) {
-      return null;
+    }
+  }
+  else {
+    const result = await query(`
+      ${env.PREFIXES}
+      SELECT DISTINCT ?organisationID WHERE  {
+        GRAPH <http://mu.semte.ch/graphs/automatic-submission> {
+          ${sparqlEscapeUri(vendor)}
+            a foaf:Agent;
+            muAccount:key ${sparqlEscapeString(key)};
+            muAccount:canActOnBehalfOf ${sparqlEscapeUri(organisation)}.
+        }
+        ${sparqlEscapeUri(organisation)}
+          mu:uuid ?organisationID.
+      }`);
+    if (result.results.bindings.length === 1) {
+      return result.results.bindings[0].organisationID.value;
     }
   }
 }
@@ -404,10 +423,10 @@ export async function sendErrorAlert({ message, detail, reference }) {
     : '';
   const q = `
     PREFIX mu:   <http://mu.semte.ch/vocabularies/core/>
-    PREFIX oslc: <http://open-services.net/ns/core#>      
+    PREFIX oslc: <http://open-services.net/ns/core#>
     PREFIX dct:  <http://purl.org/dc/terms/>
     PREFIX xsd:  <http://www.w3.org/2001/XMLSchema#>
-    
+
     INSERT DATA {
       GRAPH <http://mu.semte.ch/graphs/error> {
         ${sparqlEscapeUri(uri)}
