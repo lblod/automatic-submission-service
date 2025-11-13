@@ -57,4 +57,5 @@ export const SubmissionRegistrationContext = {
     '@type': '@id',
     '@id': 'dct:subject',
   },
+  scope: 'dgftOauth:scope'
 };
