@@ -34,6 +34,11 @@ app.use(bodyParser.json());
 
 app.post('/melding', async function (req, res) {
   try {
+    console.log("Incoming request on /melding");
+    console.log(req && req.body ?
+                JSON.stringify(req.body, null, 2)
+                : "Something is wrrong with the request");
+
     ensureValidContentType(req.get('content-type'));
     ensureValidDataType(req.body);
     // enrich the body with minimum required json LD properties
