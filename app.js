@@ -34,10 +34,12 @@ app.use(bodyParser.json());
 
 app.post('/melding', async function (req, res) {
   try {
-    console.log("Incoming request on /melding");
-    console.log(req && req.body ?
-                JSON.stringify(req.body, null, 2)
-                : "Something is wrrong with the request");
+    console.log('Incoming request on /melding');
+    console.log(
+      req && req.body
+        ? JSON.stringify(req.body, null, 2)
+        : 'Something is wrrong with the request',
+    );
 
     ensureValidContentType(req.get('content-type'));
     ensureValidDataType(req.body);
@@ -90,7 +92,7 @@ app.post('/melding', async function (req, res) {
         2,
       );
 
-      if(e.errorCode >= 500 || env.SEND_ALERT_CLIENT_ERRORS) {
+      if (e.errorCode >= 500 || env.SEND_ALERT_CLIENT_ERRORS) {
         sendErrorAlert({
           message:
             'Something unexpected went wrong while processing an auto-submission request.',

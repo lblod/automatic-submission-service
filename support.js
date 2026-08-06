@@ -8,10 +8,10 @@ import {
 import * as env from './env';
 import * as jobsAndTasks from './jobAndTaskManagement';
 import * as N3 from 'n3';
-import * as argon2 from "argon2";
+import * as argon2 from 'argon2';
 const { namedNode } = N3.DataFactory;
 
-export async function isSubmitted(resource, submissionGraph) {
+export async function isSubmitted(resource) {
   const result = await query(`
       PREFIX skos: <http://www.w3.org/2004/02/skos/core#>
 
@@ -357,7 +357,7 @@ export function parseResult(result) {
 }
 
 export async function verifyKeyAndOrganisation(vendor, key, organisation) {
-  if(env.USE_HASHED_KEY) {
+  if (env.USE_HASHED_KEY) {
     const result = await query(`
       ${env.PREFIXES}
       SELECT DISTINCT ?organisationID ?agentHash WHERE  {
@@ -382,8 +382,7 @@ export async function verifyKeyAndOrganisation(vendor, key, organisation) {
         return null;
       }
     }
-  }
-  else {
+  } else {
     const result = await query(`
       ${env.PREFIXES}
       SELECT DISTINCT ?organisationID WHERE  {
