@@ -139,6 +139,7 @@ export async function downloadTaskCreate(
   submissionGraph,
   jobUri,
   remoteDataObjectUri,
+  registerTaskUri,
 ) {
   const nowSparql = sparqlEscapeDateTime(new Date().toISOString());
   const downloadTaskUuid = uuid();
@@ -159,6 +160,7 @@ export async function downloadTaskCreate(
           dct:creator services:automatic-submission-service ;
           task:index "1" ;
           dct:isPartOf ${sparqlEscapeUri(jobUri)} ;
+          cogs:dependsOn ${sparqlEscapeUri(registerTaskUri)} ;
           task:inputContainer asj:${inputContainerUuid} .
 
         asj:${inputContainerUuid}

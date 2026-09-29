@@ -221,7 +221,12 @@ export async function automaticSubmissionTaskSuccess(
   `;
   await update(assTaskQuery);
 
-  return downloadTaskCreate(submissionGraph, jobUri, remoteDataObjectUri);
+  return downloadTaskCreate(
+    submissionGraph,
+    jobUri,
+    remoteDataObjectUri,
+    automaticSubmissionTaskUri,
+  );
 }
 
 export async function automaticSubmissionTaskFail(
